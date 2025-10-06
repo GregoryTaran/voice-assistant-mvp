@@ -11,17 +11,34 @@ async function startRecording() {
   mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
   mediaRecorder.onstop = async () => {
     status.innerText = "Обработка запроса...";
-    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-    const formData = new FormData();
-    formData.append('audio', audioBlob);
 
-    const response = await fetch('/.netlify/functions/ask', { method: 'POST', body: formData });
+    // Собираем blob
+    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+
+    // Конвертируем в base64
+    const audioBase64 = await blobToBase64(audioBlob);
+
+    // Отправляем JSON
+    const response = await fetch('/.netlify/functions/ask', { 
+      method: 'POST', 
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ audio: audioBase64 })
+    });
+
     const data = await response.json();
     status.innerText = "ИИ: " + data.reply;
-    const audio = new Audio(data.audio_url);
-    audio.play();
   };
 
   mediaRecorder.start();
   setTimeout(() => mediaRecorder.stop(), 4000); // записываем 4 секунды
+}
+
+// Вспомогательная функция конвертации
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
 }
