@@ -4,16 +4,23 @@ const FormData = require("form-data");
 exports.handler = async function (event) {
   try {
     const body = JSON.parse(event.body);
-    const audioBase64 = body.audio;
+    let audioBase64 = body.audio;
 
     if (!audioBase64) {
       return { statusCode: 400, body: "No audio provided" };
     }
 
-    // Распознавание речи (Whisper)
+    // 🧼 Убираем префикс типа: "data:audio/webm;base64,..."
+    if (audioBase64.startsWith("data:")) {
+      audioBase64 = audioBase64.split(",")[1];
+    }
+
     const audioBuffer = Buffer.from(audioBase64, "base64");
     const formData = new FormData();
-    formData.append("file", audioBuffer, { filename: "audio.webm", contentType: "audio/webm" });
+    formData.append("file", audioBuffer, {
+      filename: "audio.webm",
+      contentType: "audio/webm",
+    });
     formData.append("model", "whisper-1");
 
     const whisperRes = await fetch("https://api.openai.com/v1/audio/transcriptions", {
@@ -34,7 +41,6 @@ exports.handler = async function (event) {
 
     const userText = whisperJson.text;
 
-    // GPT-4 ответ
     const chatRes = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
