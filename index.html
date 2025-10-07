@@ -32,7 +32,7 @@
     }
 
     main {
-      max-width: 600px;
+      max-width: 650px;
       width: 90%;
       margin-top: 2rem;
       background: #fff;
@@ -81,18 +81,33 @@
       background: #1d3557;
     }
 
-    #response {
+    #chatHistory {
       background: #f8f9fa;
       border-radius: 0.6rem;
       padding: 1rem;
       margin-top: 1.5rem;
+      border: 1px solid #e5e5e5;
+      max-height: 400px;
+      overflow-y: auto;
       white-space: pre-wrap;
       line-height: 1.5;
-      border: 1px solid #e5e5e5;
+    }
+
+    .question {
+      color: #1d3557;
+      font-weight: 600;
+      margin-top: 0.8rem;
+    }
+
+    .answer {
+      color: #222;
+      margin-bottom: 0.8rem;
+      padding-left: 0.5rem;
+      border-left: 3px solid #457b9d;
     }
 
     .examples {
-      margin-top: 2rem;
+      margin-top: 1.5rem;
       font-size: 0.95rem;
       color: #555;
     }
@@ -118,7 +133,7 @@
       <button id="sendBtn">📩 Отправить текстом</button>
     </div>
 
-    <div id="response">Здесь появится ответ ХАБа.</div>
+    <div id="chatHistory"></div>
 
     <div class="examples">
       <strong>Примеры запросов:</strong>
@@ -131,59 +146,8 @@
 
   <script>
     const input = document.getElementById("input");
-    const responseDiv = document.getElementById("response");
+    const chatHistory = document.getElementById("chatHistory");
     const status = document.getElementById("status");
 
-    async function sendText() {
-      const text = input.value.trim();
-      if (!text) return;
-      status.textContent = "⏳ Обработка запроса...";
-      responseDiv.textContent = "";
-      const res = await fetch("/.netlify/functions/ask", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, shouldGreet: false })
-      });
-      const data = await res.json();
-      responseDiv.textContent = data.text || "Нет ответа.";
-      status.textContent = "Готов слушать ваш запрос…";
-    }
-
-    document.getElementById("sendBtn").addEventListener("click", sendText);
-
-    // Голосовая функция (если хочешь оставить запись через MediaRecorder)
-    document.getElementById("speakBtn").addEventListener("click", async () => {
-      if (!navigator.mediaDevices) return alert("Микрофон не поддерживается.");
-      status.textContent = "🎙️ Слушаю (5 секунд)...";
-
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
-      const chunks = [];
-      recorder.ondataavailable = e => chunks.push(e.data);
-      recorder.start();
-
-      setTimeout(() => {
-        recorder.stop();
-        status.textContent = "⏳ Обработка речи...";
-      }, 5000);
-
-      recorder.onstop = async () => {
-        const blob = new Blob(chunks, { type: "audio/webm" });
-        const reader = new FileReader();
-        reader.onloadend = async () => {
-          const base64 = reader.result.split(",")[1];
-          const res = await fetch("/.netlify/functions/ask", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ audio: base64, shouldGreet: false })
-          });
-          const data = await res.json();
-          responseDiv.textContent = data.text || "Нет ответа.";
-          status.textContent = "Готов слушать ваш запрос…";
-        };
-        reader.readAsDataURL(blob);
-      };
-    });
-  </script>
-</body>
-</html>
+    async function sendToHub(userText, audioBase64 = null) {
+      status.textContent =
