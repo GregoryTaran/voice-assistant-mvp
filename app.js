@@ -1,108 +1,40 @@
-const input = document.getElementById("input");
-const chatHistory = document.getElementById("chatHistory");
-const status = document.getElementById("status");
+let soundEnabled = true;
 const toggleBtn = document.getElementById("toggle-sound");
-
-let isSoundEnabled = sessionStorage.getItem("sound") !== "off";
-
-function updateSoundButton() {
-  toggleBtn.textContent = isSoundEnabled ? "🔊 Звук вкл" : "🔇 Звук выкл";
-}
+const icon = toggleBtn.querySelector(".icon");
+const label = toggleBtn.querySelector(".label");
 
 toggleBtn.addEventListener("click", () => {
-  isSoundEnabled = !isSoundEnabled;
-  sessionStorage.setItem("sound", isSoundEnabled ? "on" : "off");
-  updateSoundButton();
+  soundEnabled = !soundEnabled;
+  toggleBtn.classList.toggle("active", soundEnabled);
+  icon.textContent = soundEnabled ? "🔊" : "🔇";
+  label.textContent = soundEnabled ? "Звук включён" : "Звук выключен";
 });
 
-function speak(text) {
-  if (!isSoundEnabled) return;
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = "ru-RU";
-  speechSynthesis.speak(utterance);
-}
+document.getElementById("sendBtn").addEventListener("click", () => {
+  const input = document.getElementById("input").value.trim();
+  if (input) sendToHub(input);
+});
 
-function loadHistory() {
-  const saved = sessionStorage.getItem("hub_history");
-  if (!saved) return;
-  const history = JSON.parse(saved);
-  history.forEach(entry => appendMessage(entry.q, entry.a, false));
-}
-
-function saveMessage(q, a) {
-  const existing = JSON.parse(sessionStorage.getItem("hub_history") || "[]");
-  existing.unshift({ q, a });
-  sessionStorage.setItem("hub_history", JSON.stringify(existing));
-}
-
-function appendMessage(q, a, save = true) {
-  const wrapper = document.createElement("div");
-  wrapper.className = "entry";
-
-  const qDiv = document.createElement("div");
-  qDiv.className = "question";
-  qDiv.textContent = "Вопрос: " + q;
-
-  const aDiv = document.createElement("div");
-  aDiv.className = "answer";
-  aDiv.textContent = "Ответ: " + a;
-
-  wrapper.appendChild(qDiv);
-  wrapper.appendChild(aDiv);
-  chatHistory.insertBefore(wrapper, chatHistory.firstChild);
-  if (save) saveMessage(q, a);
-  speak(a);
-}
-
-async function sendToHub(userText, audioBase64 = null) {
-  status.textContent = "⏳ Обработка запроса...";
-  const body = audioBase64
-    ? { audio: audioBase64, shouldGreet: false }
-    : { text: userText, shouldGreet: false };
-
+async function sendToHub(text) {
   const res = await fetch("/.netlify/functions/ask", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body)
+    body: JSON.stringify({ text })
   });
-
   const data = await res.json();
   const answer = data.text || "Нет ответа.";
-  appendMessage(userText, answer);
-  status.textContent = "Готов слушать ваш запрос…";
-  input.value = "";
+  appendMessage(text, answer);
+  if (soundEnabled) speak(answer);
 }
 
-document.getElementById("sendBtn").addEventListener("click", () => {
-  const text = input.value.trim();
-  if (text) sendToHub(text);
-});
+function appendMessage(q, a) {
+  const block = document.createElement("div");
+  block.innerHTML = `<b>Вопрос:</b> ${q}<br><b>Ответ:</b> ${a}<hr>`;
+  document.getElementById("chatHistory").prepend(block);
+}
 
-document.getElementById("speakBtn").addEventListener("click", async () => {
-  if (!navigator.mediaDevices) return alert("Микрофон не поддерживается.");
-  status.textContent = "🎙️ Слушаю (5 секунд)...";
-
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  const recorder = new MediaRecorder(stream);
-  const chunks = [];
-  recorder.ondataavailable = e => chunks.push(e.data);
-  recorder.start();
-
-  setTimeout(() => {
-    recorder.stop();
-    status.textContent = "⏳ Обработка речи...";
-  }, 5000);
-
-  recorder.onstop = async () => {
-    const blob = new Blob(chunks, { type: "audio/webm" });
-    const reader = new FileReader();
-    reader.onloadend = async () => {
-      const base64 = reader.result.split(",")[1];
-      await sendToHub("", base64);
-    };
-    reader.readAsDataURL(blob);
-  };
-});
-
-updateSoundButton();
-loadHistory();
+function speak(text) {
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.lang = "ru-RU";
+  speechSynthesis.speak(utter);
+}
