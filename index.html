@@ -16,6 +16,7 @@
       min-height: 100vh;
       color: #222;
     }
+
     header {
       background: #fff;
       width: 100%;
@@ -23,63 +24,156 @@
       box-shadow: 0 1px 4px rgba(0,0,0,0.1);
       text-align: center;
     }
-    h1 { margin: 0; font-size: 1.6rem; color: #1d3557; }
+
+    h1 {
+      margin: 0;
+      font-size: 1.6rem;
+      color: #1d3557;
+    }
+
     main {
-      max-width: 650px; width: 90%; margin-top: 2rem;
-      background: #fff; border-radius: 1rem;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1); padding: 2rem;
+      max-width: 650px;
+      width: 90%;
+      margin-top: 2rem;
+      background: #fff;
+      border-radius: 1rem;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      padding: 2rem;
     }
+
     #status {
-      text-align: center; margin-bottom: 1rem;
-      font-weight: 500; color: #457b9d;
+      text-align: center;
+      margin-bottom: 1rem;
+      font-weight: 500;
+      color: #457b9d;
     }
+
     textarea {
-      width: 100%; height: 100px;
-      border-radius: 0.5rem; border: 1px solid #ccc;
-      padding: 0.8rem; resize: none; font-size: 1rem;
+      width: 100%;
+      height: 100px;
+      border-radius: 0.5rem;
+      border: 1px solid #ccc;
+      padding: 0.8rem;
+      resize: none;
+      font-size: 1rem;
     }
+
     .buttons {
-      display: flex; justify-content: space-between; margin-top: 1rem;
+      display: flex;
+      justify-content: space-between;
+      margin-top: 1rem;
     }
+
     button {
-      flex: 1; margin: 0.3rem; padding: 0.8rem 1rem;
-      background: #457b9d; color: #fff; border: none;
-      border-radius: 0.6rem; font-size: 1rem; cursor: pointer;
+      flex: 1;
+      margin: 0.3rem;
+      padding: 0.8rem 1rem;
+      background: #457b9d;
+      color: #fff;
+      border: none;
+      border-radius: 0.6rem;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background 0.3s;
     }
-    button:hover { background: #1d3557; }
+
+    button:hover {
+      background: #1d3557;
+    }
+
     .examples {
-      margin-top: 1rem; font-size: 0.95rem; color: #555;
-      background: #f1f3f5; padding: 0.8rem; border-radius: 0.5rem;
+      margin-top: 1rem;
+      font-size: 0.95rem;
+      color: #555;
+      background: #f1f3f5;
+      padding: 0.8rem;
+      border-radius: 0.5rem;
       border: 1px solid #e0e0e0;
     }
-    #chat {
-      background: #f8f9fa; border-radius: 0.6rem;
-      padding: 1rem; margin-top: 1rem; border: 1px solid #e5e5e5;
-      white-space: pre-wrap; line-height: 1.5;
+
+    .examples strong {
+      display: block;
+      margin-bottom: 0.4rem;
+      color: #1d3557;
     }
-    .question { color: #1d3557; font-weight: 600; margin-top: 1rem; }
-    .answer { color: #222; margin-bottom: 0.8rem; padding-left: 0.5rem;
-      border-left: 3px solid #457b9d; }
+
+    #chat {
+      margin-top: 1.5rem;
+    }
+
+    /* ——— Chat Entries ——— */
+    .chat-entry {
+      background: #fff;
+      border-radius: 0.7rem;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+      padding: 0.8rem 1rem;
+      margin-bottom: 1rem;
+      opacity: 0;
+      transform: translateY(10px);
+      animation: fadeIn 0.5s ease forwards;
+    }
+
+    @keyframes fadeIn {
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .question {
+      color: #1d3557;
+      font-weight: 600;
+      margin-bottom: 0.3rem;
+    }
+
+    .answer {
+      color: #222;
+      line-height: 1.6;
+      padding-left: 0.5rem;
+      border-left: 3px solid #457b9d;
+    }
+
+    .highlight-price {
+      color: #1d3557;
+      font-weight: 600;
+    }
+
+    .highlight-area {
+      color: #457b9d;
+      font-weight: 500;
+    }
+
+    .highlight-city {
+      background: #f1f8ff;
+      color: #0056b3;
+      padding: 0 4px;
+      border-radius: 4px;
+    }
   </style>
 </head>
 <body>
-  <header><h1>Нейро-агент ХАБ — Новостройки Италии</h1></header>
+  <header>
+    <h1>Нейро-агент ХАБ — Новостройки Италии</h1>
+  </header>
+
   <main>
     <div id="status">Готов слушать ваш запрос…</div>
+
     <textarea id="input" placeholder="Напишите или скажите свой запрос..."></textarea>
+
     <div class="buttons">
       <button id="speakBtn">🎤 Спросить голосом</button>
       <button id="sendBtn">📩 Отправить текстом</button>
     </div>
+
     <div class="examples">
       <strong>Примеры запросов:</strong>
       • Квартира в Милане до 250 000 €<br>
       • Новостройка у моря недорого<br>
       • Покажи варианты с рассрочкой<br>
-      • Премиум жильё в центре Рима
+      • Премиум-жильё в центре Рима
     </div>
+
     <div id="chat"></div>
   </main>
+
   <script src="app.js"></script>
 </body>
 </html>
