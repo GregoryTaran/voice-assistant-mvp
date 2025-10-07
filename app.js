@@ -15,29 +15,23 @@ async function startRecording() {
   mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
   mediaRecorder.onstop = async () => {
     status.innerText = "⏳ Обработка запроса...";
-
     const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
     const audioBase64 = await blobToBase64(audioBlob);
 
     const response = await fetch('/.netlify/functions/ask', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        audio: audioBase64,
-        sessionId,
-        history
-      })
+      body: JSON.stringify({ audio: audioBase64, sessionId, history })
     });
 
     const data = await response.json();
     const resultText = data.text;
     const transcript = data.transcript;
-
     addToChat(transcript, resultText);
   };
 
   mediaRecorder.start();
-  setTimeout(() => mediaRecorder.stop(), 5000); // ограничим запись 5 сек
+  setTimeout(() => mediaRecorder.stop(), 5000);
 }
 
 function addToChat(question, answer) {
@@ -54,7 +48,7 @@ function addToChat(question, answer) {
 
   block.appendChild(qDiv);
   block.appendChild(aDiv);
-  container.prepend(block); // новые сверху
+  container.prepend(block);
 
   history.push({ role: "user", content: question });
   history.push({ role: "assistant", content: answer });
@@ -70,3 +64,31 @@ function blobToBase64(blob) {
     reader.readAsDataURL(blob);
   });
 }
+
+// Кнопка отправки текста
+document.getElementById("sendBtn").addEventListener("click", async () => {
+  const input = document.getElementById("input");
+  const userText = input.value.trim();
+  if (!userText) return;
+
+  const status = document.getElementById("status");
+  status.innerText = "⏳ Обработка запроса...";
+
+  const response = await fetch('/.netlify/functions/ask', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userText, sessionId, history })
+  });
+
+  const data = await response.json();
+  const answer = data.text;
+  addToChat(userText, answer);
+
+  input.value = "";
+  status.innerText = "Готов слушать ваш запрос…";
+});
+
+// Кнопка микрофона
+document.getElementById("speakBtn").addEventListener("click", () => {
+  startRecording();
+});
