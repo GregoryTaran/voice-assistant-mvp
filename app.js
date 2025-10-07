@@ -1,4 +1,3 @@
-
 let mediaRecorder, audioChunks = [];
 const sessionId = localStorage.getItem('sessionId') || crypto.randomUUID();
 localStorage.setItem('sessionId', sessionId);
@@ -37,24 +36,40 @@ async function startRecording() {
 
 function addToChat(question, answer) {
   const container = document.getElementById("chat");
-  const block = document.createElement("div");
+
+  const wrapper = document.createElement("div");
+  wrapper.className = "chat-entry";
+  wrapper.style.opacity = 0;
+  wrapper.style.transition = "opacity 0.5s ease";
 
   const qDiv = document.createElement("div");
   qDiv.className = "question";
-  qDiv.textContent = "Вопрос: " + question;
+  qDiv.textContent = "👤 " + question;
 
   const aDiv = document.createElement("div");
   aDiv.className = "answer";
-  aDiv.textContent = "Ответ: " + answer;
+  aDiv.innerHTML = highlightText("🤖 " + answer);
 
-  block.appendChild(qDiv);
-  block.appendChild(aDiv);
-  container.prepend(block);
+  wrapper.appendChild(qDiv);
+  wrapper.appendChild(aDiv);
+  container.prepend(wrapper);
+
+  setTimeout(() => (wrapper.style.opacity = 1), 50);
 
   history.push({ role: "user", content: question });
   history.push({ role: "assistant", content: answer });
   if (history.length > 20) history.splice(0, history.length - 20);
   localStorage.setItem("history", JSON.stringify(history));
+}
+
+function highlightText(text) {
+  // выделяем числа и евро
+  text = text.replace(/(\\d+[\\s\\d]*€)/g, '<span class="highlight-price">$1</span>');
+  // выделяем метраж
+  text = text.replace(/(\\d+\\s?м²)/g, '<span class="highlight-area">$1</span>');
+  // выделяем названия городов
+  text = text.replace(/(Милан|Рим|Неаполь|Флоренция|Турин)/gi, '<span class="highlight-city">$1</span>');
+  return text;
 }
 
 function blobToBase64(blob) {
@@ -66,6 +81,7 @@ function blobToBase64(blob) {
   });
 }
 
+// Кнопка отправки текста
 document.getElementById("sendBtn").addEventListener("click", async () => {
   const input = document.getElementById("input");
   const userText = input.value.trim();
@@ -88,6 +104,4 @@ document.getElementById("sendBtn").addEventListener("click", async () => {
   status.innerText = "Готов слушать ваш запрос…";
 });
 
-document.getElementById("speakBtn").addEventListener("click", () => {
-  startRecording();
-});
+document.getElementById("speakBtn").addEventListener("click", () => startRecording());
