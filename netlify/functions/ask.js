@@ -2,20 +2,19 @@ const fetch = require("node-fetch");
 const FormData = require("form-data");
 const Papa = require("papaparse");
 
-// 📊 Google Sheets CSV (лист apartments)
+// 📊 Google Sheets (лист apartments)
 const CSV_URL =
   "https://docs.google.com/spreadsheets/d/1oRxbMU9KR9TdWVEIpg1Q4O9R_pPrHofPmJ1y2_hO09Q/gviz/tq?tqx=out:csv&sheet=apartments";
 
-// 🧠 Промт для GPT-1 (аналитик)
+// 🧠 Промт аналитика (GPT-1)
 const INTENT_PROMPT_URL =
   "https://docs.google.com/document/d/1AswvzYsQDm8vjqM-q28cCyitdohCc8IkurWjpfiksLY/export?format=txt";
 
-// 💬 Промт для GPT-2 (ассистент “Ясность”)
+// 💬 Промт ассистента (GPT-2)
 const SYSTEM_PROMPT_URL =
   "https://docs.google.com/document/d/1_N8EDELJy4Xk6pANqu4OK50fQjiixQDfR4o_xhuk1no/export?format=txt";
 
 // ---------- ДАННЫЕ ----------
-
 async function loadApartments() {
   const res = await fetch(CSV_URL);
   if (!res.ok) throw new Error("Не удалось получить CSV из Google Sheets");
@@ -25,10 +24,8 @@ async function loadApartments() {
 }
 
 // ---------- GPT-1: АНАЛИТИК ----------
-
 async function understandIntent(userText) {
   const system = await fetch(INTENT_PROMPT_URL).then(r => r.text());
-
   const resp = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -44,7 +41,6 @@ async function understandIntent(userText) {
       ],
     }),
   });
-
   const data = await resp.json();
   const raw = data?.choices?.[0]?.message?.content?.trim() || "{}";
   const jsonMatch = raw.match(/\{[\s\S]*\}$/);
@@ -57,8 +53,7 @@ async function understandIntent(userText) {
   }
 }
 
-// ---------- ОБРАБОТКА ЗАПРОСА К БАЗЕ ----------
-
+// ---------- ФИЛЬТРАЦИЯ ----------
 function executeIntent(apartments, intentObj) {
   if (!intentObj || !intentObj.intent)
     return { results: [], meta: { intent: "unknown" } };
@@ -116,14 +111,12 @@ function executeIntent(apartments, intentObj) {
   return { results: [], meta: { intent: "unsupported" } };
 }
 
-// ---------- GPT-2: ФИНАЛЬНЫЙ ОТВЕТ ----------
-
+// ---------- GPT-2: АССИСТЕНТ ----------
 async function generateAnswer(userText, resultsSlice, hist, shouldGreet) {
   const systemPrompt = await fetch(SYSTEM_PROMPT_URL).then(r => r.text());
-
   const dynamic = shouldGreet
-    ? 'Это первое сообщение в этой сессии. Начни ответ с фразы: **Добро пожаловать в нейрость "Ясность".**'
-    : 'Это не первое сообщение в сессии — не используй приветственную фразу.';
+    ? 'Это первое сообщение в сессии. Начни ответ с фразы: **Добро пожаловать в нейрость "Ясность".**'
+    : 'Это не первое сообщение в сессии — не используй приветствие.';
 
   const messages = [
     { role: "system", content: systemPrompt },
@@ -154,7 +147,6 @@ async function generateAnswer(userText, resultsSlice, hist, shouldGreet) {
 }
 
 // ---------- MAIN HANDLER ----------
-
 exports.handler = async function (event) {
   try {
     const body = JSON.parse(event.body || "{}");
@@ -162,7 +154,7 @@ exports.handler = async function (event) {
     const hist = Array.isArray(body.history) ? body.history : [];
     const shouldGreet = !!body.shouldGreet;
 
-    // 🎤 Голос → Whisper
+    // 🎤 Голос → текст
     if (!userText && body.audio) {
       let audioBase64 = body.audio;
       if (audioBase64.startsWith("data:"))
@@ -194,16 +186,35 @@ exports.handler = async function (event) {
     if (!userText)
       return { statusCode: 400, body: JSON.stringify({ error: "Пустой запрос" }) };
 
-    // 🧠 1. Понять намерение (GPT-1)
+    // 🧠 1. Анализ запроса
     const intentObj = await understandIntent(userText);
 
-    // 📊 2. Загрузить базу
+    // 💬 Если GPT-1 хочет уточнить
+    if (intentObj && intentObj.intent === "clarify" && intentObj.message) {
+      return {
+        statusCode: 200,
+        body: JSON.stringify({ text: intentObj.message, query: userText }),
+      };
+    }
+
+    // ⚙️ Если GPT-1 не понял
+    if (!intentObj || !intentObj.intent || intentObj.intent === "unknown") {
+      return {
+        statusCode: 200,
+        body: JSON.stringify({
+          text: "Похоже, запрос не ясен. Попробуйте указать город, бюджет или площадь квартиры.",
+          query: userText,
+        }),
+      };
+    }
+
+    // 📊 2. Загрузка базы
     const apartments = await loadApartments();
 
-    // 🔍 3. Найти результаты
+    // 🔍 3. Фильтрация
     const { results } = executeIntent(apartments, intentObj);
 
-    // 💬 4. GPT-2: оформить ответ
+    // 💬 4. Формирование ответа
     const answer = await generateAnswer(
       userText,
       results.slice(0, 10),
