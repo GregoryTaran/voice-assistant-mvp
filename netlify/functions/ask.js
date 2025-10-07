@@ -57,6 +57,7 @@ exports.handler = async (event) => {
     });
 
     const gptData = await gptRes.json();
+    console.log("GPT Response:", JSON.stringify(gptData, null, 2)); // <--- добавь
     const finalAnswer = gptData.choices?.[0]?.message?.content || "Ответ не получен.";
 
     return {
