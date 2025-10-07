@@ -22,6 +22,7 @@ exports.handler = async function (event) {
     });
     formData.append("model", "whisper-1");
 
+    // 1️⃣ Распознаём аудио через Whisper
     const whisperRes = await fetch("https://api.openai.com/v1/audio/transcriptions", {
       method: "POST",
       headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
@@ -39,6 +40,11 @@ exports.handler = async function (event) {
 
     const userText = whisperJson.text;
 
+    // 2️⃣ Загружаем системный промт из Google Docs (.txt)
+    const systemPromptURL = "https://docs.google.com/document/d/1_N8EDELJy4Xk6pANqu4OK50fQjiixQDfR4o_xhuk1no/export?format=txt";
+    const systemPrompt = await fetch(systemPromptURL).then(res => res.text());
+
+    // 3️⃣ Отправляем в GPT-3.5 с кастомным системным промтом
     const chatRes = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -48,7 +54,7 @@ exports.handler = async function (event) {
       body: JSON.stringify({
         model: "gpt-3.5-turbo",
         messages: [
-          { role: "system", content: "You are a helpful assistant." },
+          { role: "system", content: systemPrompt },
           { role: "user", content: userText },
         ],
       }),
@@ -74,6 +80,3 @@ exports.handler = async function (event) {
     return {
       statusCode: 500,
       body: JSON.stringify({ error: "Unexpected error", details: error.message }),
-    };
-  }
-};
