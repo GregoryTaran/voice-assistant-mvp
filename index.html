@@ -2,32 +2,188 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <title>Ясность</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Нейро-агент ХАБ — Новостройки Италии</title>
   <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 24px; }
-    h1 { margin-bottom: 8px; }
-    .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 12px 0; }
-    button { padding: 10px 16px; font-size: 15px; cursor: pointer; }
-    input[type="text"] { flex: 1; min-width: 280px; padding: 10px; font-size: 15px; }
-    #status { color: #555; margin: 6px 0 16px; }
-    #history { margin-top: 16px; display: grid; gap: 12px; }
-    .item { border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px; }
-    .q { font-weight: 600; margin-bottom: 6px; }
-    .a { white-space: pre-wrap; }
+    body {
+      font-family: system-ui, sans-serif;
+      background: #f6f7fb;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      min-height: 100vh;
+      color: #222;
+    }
+
+    header {
+      background: #fff;
+      width: 100%;
+      padding: 1rem 0;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 1.6rem;
+      color: #1d3557;
+    }
+
+    main {
+      max-width: 600px;
+      width: 90%;
+      margin-top: 2rem;
+      background: #fff;
+      border-radius: 1rem;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      padding: 2rem;
+    }
+
+    #status {
+      text-align: center;
+      margin-bottom: 1rem;
+      font-weight: 500;
+      color: #457b9d;
+    }
+
+    textarea {
+      width: 100%;
+      height: 100px;
+      border-radius: 0.5rem;
+      border: 1px solid #ccc;
+      padding: 0.8rem;
+      resize: none;
+      font-size: 1rem;
+    }
+
+    .buttons {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 1rem;
+    }
+
+    button {
+      flex: 1;
+      margin: 0.3rem;
+      padding: 0.8rem 1rem;
+      background: #457b9d;
+      color: #fff;
+      border: none;
+      border-radius: 0.6rem;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    button:hover {
+      background: #1d3557;
+    }
+
+    #response {
+      background: #f8f9fa;
+      border-radius: 0.6rem;
+      padding: 1rem;
+      margin-top: 1.5rem;
+      white-space: pre-wrap;
+      line-height: 1.5;
+      border: 1px solid #e5e5e5;
+    }
+
+    .examples {
+      margin-top: 2rem;
+      font-size: 0.95rem;
+      color: #555;
+    }
+
+    .examples strong {
+      display: block;
+      margin-bottom: 0.4rem;
+      color: #1d3557;
+    }
   </style>
 </head>
 <body>
-  <h1>Ясность — голосовой и текстовый ассистент</h1>
+  <header>
+    <h1>Нейро-агент ХАБ — Новостройки Италии</h1>
+  </header>
 
-  <div class="row">
-    <button id="micBtn" onclick="startOneShotRecording()">🎤 Говорить (5 сек)</button>
-    <input type="text" id="textInput" placeholder="Или напишите свой запрос..." onkeydown="handleKey(event)" />
-    <button id="sendBtn" onclick="sendText()">📤 Отправить</button>
-  </div>
+  <main>
+    <div id="status">Готов слушать ваш запрос…</div>
+    <textarea id="input" placeholder="Напишите или скажите свой запрос..."></textarea>
 
-  <div id="status">Ожидание действия…</div>
-  <div id="history"></div>
+    <div class="buttons">
+      <button id="speakBtn">🎤 Спросить голосом</button>
+      <button id="sendBtn">📩 Отправить текстом</button>
+    </div>
 
-  <script src="app.js"></script>
+    <div id="response">Здесь появится ответ ХАБа.</div>
+
+    <div class="examples">
+      <strong>Примеры запросов:</strong>
+      • Квартира в Милане до 250 000 €<br>
+      • Новостройка у моря недорого<br>
+      • Покажи варианты с рассрочкой<br>
+      • Премиум жильё в центре Рима
+    </div>
+  </main>
+
+  <script>
+    const input = document.getElementById("input");
+    const responseDiv = document.getElementById("response");
+    const status = document.getElementById("status");
+
+    async function sendText() {
+      const text = input.value.trim();
+      if (!text) return;
+      status.textContent = "⏳ Обработка запроса...";
+      responseDiv.textContent = "";
+      const res = await fetch("/.netlify/functions/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, shouldGreet: false })
+      });
+      const data = await res.json();
+      responseDiv.textContent = data.text || "Нет ответа.";
+      status.textContent = "Готов слушать ваш запрос…";
+    }
+
+    document.getElementById("sendBtn").addEventListener("click", sendText);
+
+    // Голосовая функция (если хочешь оставить запись через MediaRecorder)
+    document.getElementById("speakBtn").addEventListener("click", async () => {
+      if (!navigator.mediaDevices) return alert("Микрофон не поддерживается.");
+      status.textContent = "🎙️ Слушаю (5 секунд)...";
+
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      const chunks = [];
+      recorder.ondataavailable = e => chunks.push(e.data);
+      recorder.start();
+
+      setTimeout(() => {
+        recorder.stop();
+        status.textContent = "⏳ Обработка речи...";
+      }, 5000);
+
+      recorder.onstop = async () => {
+        const blob = new Blob(chunks, { type: "audio/webm" });
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+          const base64 = reader.result.split(",")[1];
+          const res = await fetch("/.netlify/functions/ask", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ audio: base64, shouldGreet: false })
+          });
+          const data = await res.json();
+          responseDiv.textContent = data.text || "Нет ответа.";
+          status.textContent = "Готов слушать ваш запрос…";
+        };
+        reader.readAsDataURL(blob);
+      };
+    });
+  </script>
 </body>
 </html>
