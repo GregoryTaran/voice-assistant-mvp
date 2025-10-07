@@ -1,21 +1,26 @@
-
 const input = document.getElementById("input");
 const chatHistory = document.getElementById("chatHistory");
 const status = document.getElementById("status");
-const toggleSoundBtn = document.getElementById("toggle-sound");
+const toggleBtn = document.getElementById("toggle-sound");
 
-let soundEnabled = sessionStorage.getItem("sound") !== "off";
-updateSoundIcon();
+let isSoundEnabled = sessionStorage.getItem("sound") !== "off";
 
-function updateSoundIcon() {
-  toggleSoundBtn.textContent = soundEnabled ? "🔊 Звук вкл" : "🔇 Звук выкл";
+function updateSoundButton() {
+  toggleBtn.textContent = isSoundEnabled ? "🔊 Звук вкл" : "🔇 Звук выкл";
 }
 
-toggleSoundBtn.addEventListener("click", () => {
-  soundEnabled = !soundEnabled;
-  sessionStorage.setItem("sound", soundEnabled ? "on" : "off");
-  updateSoundIcon();
+toggleBtn.addEventListener("click", () => {
+  isSoundEnabled = !isSoundEnabled;
+  sessionStorage.setItem("sound", isSoundEnabled ? "on" : "off");
+  updateSoundButton();
 });
+
+function speak(text) {
+  if (!isSoundEnabled) return;
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = "ru-RU";
+  speechSynthesis.speak(utterance);
+}
 
 function loadHistory() {
   const saved = sessionStorage.getItem("hub_history");
@@ -45,16 +50,8 @@ function appendMessage(q, a, save = true) {
   wrapper.appendChild(qDiv);
   wrapper.appendChild(aDiv);
   chatHistory.insertBefore(wrapper, chatHistory.firstChild);
-
   if (save) saveMessage(q, a);
-  if (soundEnabled) speakText(a);
-}
-
-function speakText(text) {
-  if (!window.speechSynthesis) return;
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = "ru-RU";
-  window.speechSynthesis.speak(utterance);
+  speak(a);
 }
 
 async function sendToHub(userText, audioBase64 = null) {
@@ -71,7 +68,7 @@ async function sendToHub(userText, audioBase64 = null) {
 
   const data = await res.json();
   const answer = data.text || "Нет ответа.";
-  appendMessage(userText || data.transcript || "Без запроса", answer);
+  appendMessage(userText, answer);
   status.textContent = "Готов слушать ваш запрос…";
   input.value = "";
 }
@@ -107,4 +104,5 @@ document.getElementById("speakBtn").addEventListener("click", async () => {
   };
 });
 
+updateSoundButton();
 loadHistory();
