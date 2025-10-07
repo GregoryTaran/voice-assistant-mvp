@@ -1,9 +1,9 @@
 {
-  "name": "voice-assistant-mvp",
-  "version": "1.0.0",
+  "name": "voice-assistant",
+  "type": "module",
   "dependencies": {
-    "node-fetch": "^2.6.7",
-    "form-data": "^4.0.0",
+    "openai": "^4.30.0",
+    "node-fetch": "^2.6.9",
     "papaparse": "^5.4.1"
   }
 }
