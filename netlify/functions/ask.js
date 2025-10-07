@@ -46,7 +46,7 @@ exports.handler = async function (event) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-3.5-turbo",
+        model: "gpt-4",
         messages: [
           { role: "system", content: "You are a helpful assistant." },
           { role: "user", content: userText },
@@ -59,18 +59,4 @@ exports.handler = async function (event) {
     if (!chatRes.ok) {
       return {
         statusCode: 500,
-        body: JSON.stringify({ error: "ChatGPT failed", details: chatJson }),
-      };
-    }
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ text: chatJson.choices[0].message.content }),
-    };
-  } catch (error) {
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: "Unexpected error", details: error.message }),
-    };
-  }
-};
+        body: JSON.stringify({ error: "ChatGPT failed", details: chatJ
