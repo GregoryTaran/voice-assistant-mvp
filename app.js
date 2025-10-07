@@ -1,7 +1,8 @@
 let mediaRecorder, audioChunks = [];
+let ttsEnabled = true;
+
 const sessionId = localStorage.getItem('sessionId') || crypto.randomUUID();
 localStorage.setItem('sessionId', sessionId);
-
 const history = JSON.parse(localStorage.getItem('history') || '[]');
 
 async function startRecording() {
@@ -36,11 +37,8 @@ async function startRecording() {
 
 function addToChat(question, answer) {
   const container = document.getElementById("chat");
-
   const wrapper = document.createElement("div");
   wrapper.className = "chat-entry";
-  wrapper.style.opacity = 0;
-  wrapper.style.transition = "opacity 0.5s ease";
 
   const qDiv = document.createElement("div");
   qDiv.className = "question";
@@ -54,7 +52,7 @@ function addToChat(question, answer) {
   wrapper.appendChild(aDiv);
   container.prepend(wrapper);
 
-  setTimeout(() => (wrapper.style.opacity = 1), 50);
+  speakText(answer); // 🔊 озвучка
 
   history.push({ role: "user", content: question });
   history.push({ role: "assistant", content: answer });
@@ -63,11 +61,8 @@ function addToChat(question, answer) {
 }
 
 function highlightText(text) {
-  // выделяем числа и евро
   text = text.replace(/(\\d+[\\s\\d]*€)/g, '<span class="highlight-price">$1</span>');
-  // выделяем метраж
   text = text.replace(/(\\d+\\s?м²)/g, '<span class="highlight-area">$1</span>');
-  // выделяем названия городов
   text = text.replace(/(Милан|Рим|Неаполь|Флоренция|Турин)/gi, '<span class="highlight-city">$1</span>');
   return text;
 }
@@ -81,7 +76,19 @@ function blobToBase64(blob) {
   });
 }
 
-// Кнопка отправки текста
+function speakText(text) {
+  if (!ttsEnabled) return;
+  if (!window.speechSynthesis) return;
+
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = "ru-RU";
+  utterance.rate = 1;
+  utterance.pitch = 1;
+  utterance.volume = 1;
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(utterance);
+}
+
 document.getElementById("sendBtn").addEventListener("click", async () => {
   const input = document.getElementById("input");
   const userText = input.value.trim();
@@ -105,3 +112,18 @@ document.getElementById("sendBtn").addEventListener("click", async () => {
 });
 
 document.getElementById("speakBtn").addEventListener("click", () => startRecording());
+
+// 🎛️ Переключатель озвучки
+const ttsToggle = document.getElementById("ttsToggle");
+ttsToggle.addEventListener("click", () => {
+  ttsEnabled = !ttsEnabled;
+  if (ttsEnabled) {
+    ttsToggle.classList.remove("off");
+    ttsToggle.textContent = "🔊 Озвучка включена";
+    ttsToggle.title = "Нажмите, чтобы выключить";
+  } else {
+    ttsToggle.classList.add("off");
+    ttsToggle.textContent = "🔇 Озвучка выключена";
+    ttsToggle.title = "Нажмите, чтобы включить";
+  }
+});
