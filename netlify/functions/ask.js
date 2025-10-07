@@ -1,44 +1,76 @@
-let mediaRecorder, audioChunks = [];
+const fetch = require("node-fetch");
+const FormData = require("form-data");
 
-async function startRecording() {
-  const status = document.getElementById("status");
-  status.innerText = "Слушаю...";
+exports.handler = async function (event) {
+  try {
+    const body = JSON.parse(event.body);
+    let audioBase64 = body.audio;
 
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  mediaRecorder = new MediaRecorder(stream);
-  audioChunks = [];
+    if (!audioBase64) {
+      return { statusCode: 400, body: "No audio provided" };
+    }
 
-  mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-  mediaRecorder.onstop = async () => {
-    status.innerText = "Обработка запроса...";
+    if (audioBase64.startsWith("data:")) {
+      audioBase64 = audioBase64.split(",")[1];
+    }
 
-    // Собираем blob
-    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+    const audioBuffer = Buffer.from(audioBase64, "base64");
+    const formData = new FormData();
+    formData.append("file", audioBuffer, {
+      filename: "audio.webm",
+      contentType: "audio/webm",
+    });
+    formData.append("model", "whisper-1");
 
-    // Конвертируем в base64
-    const audioBase64 = await blobToBase64(audioBlob);
-
-    // Отправляем JSON
-    const response = await fetch('/.netlify/functions/ask', { 
-      method: 'POST', 
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ audio: audioBase64 })
+    const whisperRes = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
+      body: formData,
     });
 
-    const data = await response.json();
-    status.innerText = "ИИ: " + data.reply;
-  };
+    const whisperJson = await whisperRes.json();
 
-  mediaRecorder.start();
-  setTimeout(() => mediaRecorder.stop(), 4000); // записываем 4 секунды
-}
+    if (!whisperRes.ok) {
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ error: "Whisper failed", details: whisperJson }),
+      };
+    }
 
-// Вспомогательная функция конвертации
-function blobToBase64(blob) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
-}
+    const userText = whisperJson.text;
+
+    const chatRes = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "gpt-4",
+        messages: [
+          { role: "system", content: "You are a helpful assistant." },
+          { role: "user", content: userText },
+        ],
+      }),
+    });
+
+    const chatJson = await chatRes.json();
+
+    if (!chatRes.ok) {
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ error: "ChatGPT failed", details: chatJson }),
+      };
+    }
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ text: chatJson.choices[0].message.content }),
+    };
+  } catch (error) {
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: "Unexpected error", details: error.message }),
+    };
+  }
+};
