@@ -1,17 +1,14 @@
 let mediaRecorder, audioChunks = [];
-
-// ✅ сохраняем состояние озвучки между сессиями
 let ttsEnabled = localStorage.getItem("ttsEnabled") !== "false";
 
 const sessionId = localStorage.getItem('sessionId') || crypto.randomUUID();
 localStorage.setItem('sessionId', sessionId);
 const history = JSON.parse(localStorage.getItem('history') || '[]');
 
-// 🎛️ Обновляем надпись на кнопке озвучки при загрузке
 const ttsToggle = document.getElementById("ttsToggle");
+const ttsWaves = document.getElementById("ttsWaves");
 updateTtsToggle();
 
-// --- МИКРОФОН ---
 async function startRecording() {
   const status = document.getElementById("status");
   status.innerText = "🎙️ Слушаю...";
@@ -33,16 +30,13 @@ async function startRecording() {
     });
 
     const data = await response.json();
-    const resultText = data.text;
-    const transcript = data.transcript;
-    addToChat(transcript, resultText);
+    addToChat(data.transcript, data.text);
   };
 
   mediaRecorder.start();
   setTimeout(() => mediaRecorder.stop(), 5000);
 }
 
-// --- ВЫВОД В ЧАТ ---
 function addToChat(question, answer) {
   const container = document.getElementById("chat");
   const wrapper = document.createElement("div");
@@ -60,7 +54,7 @@ function addToChat(question, answer) {
   wrapper.appendChild(aDiv);
   container.prepend(wrapper);
 
-  if (ttsEnabled) speakText(answer); // 🔊 озвучка
+  if (ttsEnabled) speakText(answer);
 
   history.push({ role: "user", content: question });
   history.push({ role: "assistant", content: answer });
@@ -68,7 +62,6 @@ function addToChat(question, answer) {
   localStorage.setItem("history", JSON.stringify(history));
 }
 
-// --- ВСПОМОГАТЕЛЬНЫЕ ---
 function highlightText(text) {
   text = text.replace(/(\d+[\s\d]*€)/g, '<span class="highlight-price">$1</span>');
   text = text.replace(/(\d+\s?м²)/g, '<span class="highlight-area">$1</span>');
@@ -85,29 +78,25 @@ function blobToBase64(blob) {
   });
 }
 
-// --- ОЗВУЧКА ---
 function speakText(text) {
   if (!window.speechSynthesis) return;
+
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = "ru-RU";
   utterance.rate = 1;
   utterance.pitch = 1;
   utterance.volume = 1;
 
-  // ждём, пока загрузятся голоса
-  const speak = () => {
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(utterance);
-  };
+  // Показать волны
+  ttsWaves.style.display = "inline-flex";
 
-  if (speechSynthesis.getVoices().length === 0) {
-    window.speechSynthesis.onvoiceschanged = speak;
-  } else {
-    speak();
-  }
+  utterance.onend = () => ttsWaves.style.display = "none";
+
+  if (!ttsEnabled) return;
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(utterance);
 }
 
-// --- ТЕКСТОВЫЙ ЗАПРОС ---
 document.getElementById("sendBtn").addEventListener("click", async () => {
   const input = document.getElementById("input");
   const userText = input.value.trim();
@@ -123,30 +112,33 @@ document.getElementById("sendBtn").addEventListener("click", async () => {
   });
 
   const data = await response.json();
-  const answer = data.text;
-  addToChat(userText, answer);
-
+  addToChat(userText, data.text);
   input.value = "";
   status.innerText = "Готов слушать ваш запрос…";
 });
 
 document.getElementById("speakBtn").addEventListener("click", () => startRecording());
 
-// --- ПЕРЕКЛЮЧАТЕЛЬ ОЗВУЧКИ ---
+// 🔊 Переключатель озвучки
 ttsToggle.addEventListener("click", () => {
   ttsEnabled = !ttsEnabled;
   localStorage.setItem("ttsEnabled", ttsEnabled);
   updateTtsToggle();
+
+  // Если выключили — мгновенно прерываем звук
+  if (!ttsEnabled) {
+    window.speechSynthesis.cancel();
+    ttsWaves.style.display = "none";
+  }
 });
 
 function updateTtsToggle() {
   if (ttsEnabled) {
     ttsToggle.classList.remove("off");
-    ttsToggle.textContent = "🔊 Озвучка включена";
-    ttsToggle.title = "Нажмите, чтобы выключить";
+    ttsToggle.firstChild.textContent = "🔊 Озвучка включена ";
   } else {
     ttsToggle.classList.add("off");
-    ttsToggle.textContent = "🔇 Озвучка выключена";
-    ttsToggle.title = "Нажмите, чтобы включить";
+    ttsToggle.firstChild.textContent = "🔇 Озвучка выключена ";
+    ttsWaves.style.display = "none";
   }
 }
