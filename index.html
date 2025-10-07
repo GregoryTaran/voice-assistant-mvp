@@ -48,6 +48,30 @@
       color: #457b9d;
     }
 
+    .tts-toggle {
+      text-align: center;
+      font-size: 0.95rem;
+      color: #1d3557;
+      background: #eef3f8;
+      border: 1px solid #ccd9e0;
+      border-radius: 0.5rem;
+      padding: 0.4rem 0.8rem;
+      margin-bottom: 0.8rem;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.3s, opacity 0.3s;
+    }
+
+    .tts-toggle:hover {
+      background: #e1edf7;
+    }
+
+    .tts-toggle.off {
+      opacity: 0.6;
+      background: #f4f4f4;
+      color: #777;
+    }
+
     textarea {
       width: 100%;
       height: 100px;
@@ -101,7 +125,6 @@
       margin-top: 1.5rem;
     }
 
-    /* ——— Chat Entries ——— */
     .chat-entry {
       background: #fff;
       border-radius: 0.7rem;
@@ -155,6 +178,10 @@
 
   <main>
     <div id="status">Готов слушать ваш запрос…</div>
+
+    <div id="ttsToggle" class="tts-toggle" title="Озвучка включена">
+      🔊 Озвучка включена
+    </div>
 
     <textarea id="input" placeholder="Напишите или скажите свой запрос..."></textarea>
 
