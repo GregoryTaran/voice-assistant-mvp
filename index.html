@@ -48,7 +48,12 @@
       color: #457b9d;
     }
 
+    /* Переключатель звука */
     .tts-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
       text-align: center;
       font-size: 0.95rem;
       color: #1d3557;
@@ -60,6 +65,7 @@
       cursor: pointer;
       user-select: none;
       transition: background 0.3s, opacity 0.3s;
+      position: relative;
     }
 
     .tts-toggle:hover {
@@ -70,6 +76,34 @@
       opacity: 0.6;
       background: #f4f4f4;
       color: #777;
+    }
+
+    /* Волны звука */
+    .wave {
+      width: 3px;
+      height: 8px;
+      background: #1d3557;
+      display: inline-block;
+      border-radius: 2px;
+      animation: sound 1.2s linear infinite;
+    }
+
+    .wave:nth-child(2) { animation-delay: -0.2s; }
+    .wave:nth-child(3) { animation-delay: -0.4s; }
+    .wave:nth-child(4) { animation-delay: -0.6s; }
+    .wave:nth-child(5) { animation-delay: -0.8s; }
+
+    @keyframes sound {
+      0% { height: 5px; opacity: .6; }
+      50% { height: 15px; opacity: 1; }
+      100% { height: 5px; opacity: .6; }
+    }
+
+    .waves {
+      display: inline-flex;
+      align-items: flex-end;
+      gap: 2px;
+      height: 18px;
     }
 
     textarea {
@@ -181,6 +215,11 @@
 
     <div id="ttsToggle" class="tts-toggle" title="Озвучка включена">
       🔊 Озвучка включена
+      <div id="ttsWaves" class="waves" style="display:none;">
+        <div class="wave"></div><div class="wave"></div>
+        <div class="wave"></div><div class="wave"></div>
+        <div class="wave"></div>
+      </div>
     </div>
 
     <textarea id="input" placeholder="Напишите или скажите свой запрос..."></textarea>
