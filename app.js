@@ -26,7 +26,8 @@ async function startRecording() {
     });
 
     const data = await response.json();
-    status.innerText = "ИИ: " + data.reply;
+    // !!! тут меняем reply на text !!!
+    status.innerText = "ИИ: " + (data.text || "🤖 Нет ответа");
   };
 
   mediaRecorder.start();
