@@ -1,3 +1,4 @@
+
 let mediaRecorder, audioChunks = [];
 const sessionId = localStorage.getItem('sessionId') || crypto.randomUUID();
 localStorage.setItem('sessionId', sessionId);
@@ -65,7 +66,6 @@ function blobToBase64(blob) {
   });
 }
 
-// Кнопка отправки текста
 document.getElementById("sendBtn").addEventListener("click", async () => {
   const input = document.getElementById("input");
   const userText = input.value.trim();
@@ -88,7 +88,6 @@ document.getElementById("sendBtn").addEventListener("click", async () => {
   status.innerText = "Готов слушать ваш запрос…";
 });
 
-// Кнопка микрофона
 document.getElementById("speakBtn").addEventListener("click", () => {
   startRecording();
 });
