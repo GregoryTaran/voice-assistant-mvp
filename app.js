@@ -49,10 +49,12 @@ async function sendText() {
   const response = await fetch('/.netlify/functions/ask', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text }) // передаём текст вместо аудио
+    body: JSON.stringify({ text })
   });
 
   const data = await response.json();
   document.getElementById("responseText").innerText = data.text || "Ошибка";
   document.getElementById("status").innerText = "✅ Готово";
+
+  input.value = ""; // 🧹 очистка поля
 }
