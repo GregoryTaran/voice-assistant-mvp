@@ -2,28 +2,27 @@ const fetch = require("node-fetch");
 const FormData = require("form-data");
 const Papa = require("papaparse");
 
-// 📊 Google Sheets (лист apartments)
+// Google Sheets (лист apartments)
 const CSV_URL =
   "https://docs.google.com/spreadsheets/d/1oRxbMU9KR9TdWVEIpg1Q4O9R_pPrHofPmJ1y2_hO09Q/gviz/tq?tqx=out:csv&sheet=apartments";
 
-// 🧠 Промт аналитика (GPT-1)
+// GPT-1 (аналитик)
 const INTENT_PROMPT_URL =
   "https://docs.google.com/document/d/1AswvzYsQDm8vjqM-q28cCyitdohCc8IkurWjpfiksLY/export?format=txt";
 
-// 💬 Промт ассистента (GPT-2)
+// GPT-2 (ассистент)
 const SYSTEM_PROMPT_URL =
   "https://docs.google.com/document/d/1_N8EDELJy4Xk6pANqu4OK50fQjiixQDfR4o_xhuk1no/export?format=txt";
 
-// ---------- ДАННЫЕ ----------
+// ---------- CSV ----------
 async function loadApartments() {
   const res = await fetch(CSV_URL);
-  if (!res.ok) throw new Error("Не удалось получить CSV из Google Sheets");
-  const csvText = await res.text();
-  const parsed = Papa.parse(csvText, { header: true, skipEmptyLines: true });
+  const text = await res.text();
+  const parsed = Papa.parse(text, { header: true, skipEmptyLines: true });
   return parsed.data;
 }
 
-// ---------- GPT-1: АНАЛИТИК ----------
+// ---------- GPT-1 ----------
 async function understandIntent(userText) {
   const system = await fetch(INTENT_PROMPT_URL).then(r => r.text());
   const resp = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -48,12 +47,12 @@ async function understandIntent(userText) {
   try {
     return JSON.parse(jsonStr);
   } catch {
-    console.error("JSON parse error (GPT-1):", raw);
+    console.error("GPT-1 parse error:", raw);
     return null;
   }
 }
 
-// ---------- ФИЛЬТРАЦИЯ ----------
+// ---------- EXECUTE ----------
 function executeIntent(apartments, intentObj) {
   if (!intentObj || !intentObj.intent)
     return { results: [], meta: { intent: "unknown" } };
@@ -61,63 +60,60 @@ function executeIntent(apartments, intentObj) {
   const intent = intentObj.intent;
   const f = intentObj.filters || {};
 
-  if (intent === "list_cities") {
-    const cities = [...new Set(apartments.map(a => (a["Город"] || "").trim()))].filter(Boolean);
-    return { results: cities.map(c => ({ city: c })), meta: { intent } };
-  }
+  const regionGroups = {
+    north: ["Милан", "Турин", "Болонья", "Верона", "Венеция", "Тренто", "Генуя"],
+    south: ["Неаполь", "Бари", "Палермо", "Катания", "Таранто", "Реджо-ди-Калабрия"],
+    center: ["Рим", "Флоренция", "Перуджа", "Пиза"],
+    coast: ["Венеция", "Неаполь", "Бари", "Генуя", "Палермо", "Катания", "Римини"],
+    mountain: ["Тренто", "Больцано"],
+  };
 
-  if (intent === "list_developers") {
-    const devs = [...new Set(apartments.map(a => (a["Застройщик"] || "").trim()))].filter(Boolean);
-    return { results: devs.map(d => ({ developer: d })), meta: { intent } };
-  }
+  const prices = apartments
+    .map(a => Number(a["Общая цена (€)"] || 0))
+    .filter(Boolean)
+    .sort((a, b) => a - b);
+  const lowT = prices[Math.floor(prices.length * 0.3)];
+  const highT = prices[Math.floor(prices.length * 0.7)];
 
-  if (intent === "search_apartments") {
-    const results = apartments.filter(ap => {
-      const cityVal = (ap["Город"] || "");
-      const devVal = (ap["Застройщик"] || "");
-      const area = Number(ap["Площадь (м²)"] || 0);
-      const priceTotal = Number(ap["Общая цена (€)"] || ap["Общая цена"] || 0);
-      const pricePerM2 = Number(ap["Цена за м² (€)"] || 0);
-      const instPercent = Number(ap["Рассрочка (%)"] || 0);
-      const months = Number(ap["Месяцев"] || 0);
+  if (f.price_segment === "low") f.max_price = lowT;
+  if (f.price_segment === "high") f.min_price = highT;
 
-      const byCity = f.city ? cityVal.toLowerCase().includes(String(f.city).toLowerCase()) : true;
-      const byDev = f.developer ? devVal.toLowerCase().includes(String(f.developer).toLowerCase()) : true;
+  const results = apartments.filter(ap => {
+    const city = (ap["Город"] || "").toLowerCase();
+    const dev = (ap["Застройщик"] || "").toLowerCase();
+    const area = Number(ap["Площадь (м²)"] || 0);
+    const total = Number(ap["Общая цена (€)"] || 0);
+    const priceM2 = Number(ap["Цена за м² (€)"] || 0);
 
-      const areaMinOk = f.min_area ? area >= f.min_area : true;
-      const areaMaxOk = f.max_area ? area <= f.max_area : true;
-      const priceMinOk = f.min_price ? priceTotal >= f.min_price : true;
-      const priceMaxOk = f.max_price ? priceTotal <= f.max_price : true;
-      const ppm2MinOk = f.min_price_per_m2 ? pricePerM2 >= f.min_price_per_m2 : true;
-      const ppm2MaxOk = f.max_price_per_m2 ? pricePerM2 <= f.max_price_per_m2 : true;
-      const instMinOk = f.min_installment_percent ? instPercent >= f.min_installment_percent : true;
-      const instMaxOk = f.max_installment_percent ? instPercent <= f.max_installment_percent : true;
-      const monthsMinOk = f.min_months ? months >= f.min_months : true;
-      const monthsMaxOk = f.max_months ? months <= f.max_months : true;
+    const byCity = f.city ? city.includes(f.city.toLowerCase()) : true;
+    const byDev = f.developer ? dev.includes(f.developer.toLowerCase()) : true;
+    const byRegion =
+      f.region && regionGroups[f.region]
+        ? regionGroups[f.region].some(c => city.includes(c.toLowerCase()))
+        : true;
 
-      return (
-        byCity && byDev &&
-        areaMinOk && areaMaxOk &&
-        priceMinOk && priceMaxOk &&
-        ppm2MinOk && ppm2MaxOk &&
-        instMinOk && instMaxOk &&
-        monthsMinOk && monthsMaxOk
-      );
-    });
+    const areaOk =
+      (!f.min_area || area >= f.min_area) &&
+      (!f.max_area || area <= f.max_area);
+    const priceOk =
+      (!f.min_price || total >= f.min_price) &&
+      (!f.max_price || total <= f.max_price);
+    const ppm2Ok =
+      (!f.min_price_per_m2 || priceM2 >= f.min_price_per_m2) &&
+      (!f.max_price_per_m2 || priceM2 <= f.max_price_per_m2);
 
-    return { results, meta: { intent, filters: f } };
-  }
+    return byCity && byDev && byRegion && areaOk && priceOk && ppm2Ok;
+  });
 
-  return { results: [], meta: { intent: "unsupported" } };
+  return { results, meta: { intent, filters: f } };
 }
 
-// ---------- GPT-2: АССИСТЕНТ ----------
+// ---------- GPT-2 ----------
 async function generateAnswer(userText, resultsSlice, hist, shouldGreet) {
   const systemPrompt = await fetch(SYSTEM_PROMPT_URL).then(r => r.text());
   const dynamic = shouldGreet
     ? 'Это первое сообщение в сессии. Начни ответ с фразы: **Добро пожаловать в нейрость "Ясность".**'
-    : 'Это не первое сообщение в сессии — не используй приветствие.';
-
+    : 'Это не первое сообщение — не используй приветствие.';
   const messages = [
     { role: "system", content: systemPrompt },
     { role: "system", content: dynamic },
@@ -141,12 +137,11 @@ async function generateAnswer(userText, resultsSlice, hist, shouldGreet) {
       messages,
     }),
   });
-
   const data = await resp.json();
   return data?.choices?.[0]?.message?.content || "🤖 Нет ответа.";
 }
 
-// ---------- MAIN HANDLER ----------
+// ---------- MAIN ----------
 exports.handler = async function (event) {
   try {
     const body = JSON.parse(event.body || "{}");
@@ -154,78 +149,40 @@ exports.handler = async function (event) {
     const hist = Array.isArray(body.history) ? body.history : [];
     const shouldGreet = !!body.shouldGreet;
 
-    // 🎤 Голос → текст
+    // 🎤 Распознавание
     if (!userText && body.audio) {
       let audioBase64 = body.audio;
-      if (audioBase64.startsWith("data:"))
-        audioBase64 = audioBase64.split(",")[1];
-
-      const audioBuffer = Buffer.from(audioBase64, "base64");
+      if (audioBase64.startsWith("data:")) audioBase64 = audioBase64.split(",")[1];
       const form = new FormData();
-      form.append("file", audioBuffer, {
+      form.append("file", Buffer.from(audioBase64, "base64"), {
         filename: "audio.webm",
         contentType: "audio/webm",
       });
       form.append("model", "whisper-1");
-
-      const wRes = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+      const w = await fetch("https://api.openai.com/v1/audio/transcriptions", {
         method: "POST",
         headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
         body: form,
       });
-
-      const wJson = await wRes.json();
-      if (!wRes.ok)
-        return {
-          statusCode: 500,
-          body: JSON.stringify({ error: "Whisper failed", details: wJson }),
-        };
-      userText = (wJson.text || "").trim();
+      const j = await w.json();
+      userText = j.text?.trim() || "";
     }
 
-    if (!userText)
-      return { statusCode: 400, body: JSON.stringify({ error: "Пустой запрос" }) };
+    if (!userText) return { statusCode: 400, body: "Пустой запрос" };
 
-    // 🧠 1. Анализ запроса
+    // 🧠 GPT-1
     const intentObj = await understandIntent(userText);
 
-    // 💬 Если GPT-1 хочет уточнить
-    if (intentObj && intentObj.intent === "clarify" && intentObj.message) {
-      return {
-        statusCode: 200,
-        body: JSON.stringify({ text: intentObj.message, query: userText }),
-      };
+    if (intentObj?.intent === "clarify") {
+      return { statusCode: 200, body: JSON.stringify({ text: intentObj.message }) };
     }
 
-    // ⚙️ Если GPT-1 не понял
-    if (!intentObj || !intentObj.intent || intentObj.intent === "unknown") {
-      return {
-        statusCode: 200,
-        body: JSON.stringify({
-          text: "Похоже, запрос не ясен. Попробуйте указать город, бюджет или площадь квартиры.",
-          query: userText,
-        }),
-      };
-    }
-
-    // 📊 2. Загрузка базы
     const apartments = await loadApartments();
-
-    // 🔍 3. Фильтрация
     const { results } = executeIntent(apartments, intentObj);
 
-    // 💬 4. Формирование ответа
-    const answer = await generateAnswer(
-      userText,
-      results.slice(0, 10),
-      hist,
-      shouldGreet
-    );
+    const answer = await generateAnswer(userText, results.slice(0, 10), hist, shouldGreet);
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ text: answer, query: userText }),
-    };
+    return { statusCode: 200, body: JSON.stringify({ text: answer, query: userText }) };
   } catch (e) {
     console.error(e);
     return { statusCode: 500, body: JSON.stringify({ error: e.message }) };
