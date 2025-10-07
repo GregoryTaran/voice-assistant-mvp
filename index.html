@@ -2,56 +2,37 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <title>Ясность и Фокус</title>
+  <title>Ясность</title>
   <style>
-    body {
-      font-family: sans-serif;
-      text-align: center;
-      padding: 2em;
-    }
-    button {
-      margin: 10px;
-      padding: 1em;
-      font-size: 16px;
-      cursor: pointer;
-    }
-    input[type="text"] {
-      width: 80%;
-      padding: 1em;
-      font-size: 16px;
-      margin: 10px auto;
-    }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 24px; }
+    h1 { margin-bottom: 8px; }
+    .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 12px 0; }
+    button { padding: 10px 16px; font-size: 15px; cursor: pointer; }
+    input[type="text"] { flex: 1; min-width: 280px; padding: 10px; font-size: 15px; }
+    #status { color: #666; margin: 6px 0 16px; }
+    #history { margin-top: 16px; display: grid; gap: 12px; }
+    .item { border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px; }
+    .q { font-weight: 600; margin-bottom: 6px; }
+    .a { white-space: pre-wrap; }
   </style>
 </head>
 <body>
   <h1>Ясность – голосовой и текстовый ассистент</h1>
 
-  <div>
+  <div class="row">
     <button onclick="startRecording()">🎤 Говорить</button>
-    <p id="status">Ожидание действия...</p>
-  </div>
-
-  <div>
-    <input
-      type="text"
-      id="textInput"
-      placeholder="Или напишите свой запрос здесь..."
-      onkeydown="handleKey(event)"
-    />
+    <input type="text" id="textInput" placeholder="Или напишите свой запрос здесь..." onkeydown="handleKey(event)" />
     <button onclick="sendText()">📤 Отправить текст</button>
   </div>
 
-  <div>
-    <p><strong>Ответ:</strong></p>
-    <p id="responseText">—</p>
-  </div>
+  <div id="status">Ожидание действия…</div>
+
+  <div id="history"></div>
 
   <script src="app.js"></script>
   <script>
     function handleKey(e) {
-      if (e.key === "Enter") {
-        sendText();
-      }
+      if (e.key === "Enter") sendText();
     }
   </script>
 </body>
