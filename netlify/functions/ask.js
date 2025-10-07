@@ -10,7 +10,6 @@ exports.handler = async function (event) {
       return { statusCode: 400, body: "No audio provided" };
     }
 
-    // 🧼 Убираем data:audio/webm;base64, если оно есть
     if (audioBase64.startsWith("data:")) {
       audioBase64 = audioBase64.split(",")[1];
     }
@@ -32,7 +31,6 @@ exports.handler = async function (event) {
     const whisperJson = await whisperRes.json();
 
     if (!whisperRes.ok) {
-      console.error("Whisper error:", whisperJson);
       return {
         statusCode: 500,
         body: JSON.stringify({ error: "Whisper failed", details: whisperJson }),
@@ -48,9 +46,9 @@ exports.handler = async function (event) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-4",
+        model: "gpt-3.5-turbo",
         messages: [
-          { role: "system", content: "Ты голосовой ассистент. Отвечай ясно и коротко." },
+          { role: "system", content: "You are a helpful assistant." },
           { role: "user", content: userText },
         ],
       }),
@@ -59,24 +57,20 @@ exports.handler = async function (event) {
     const chatJson = await chatRes.json();
 
     if (!chatRes.ok) {
-      console.error("Chat error:", chatJson);
       return {
         statusCode: 500,
         body: JSON.stringify({ error: "ChatGPT failed", details: chatJson }),
       };
     }
 
-    const assistantReply = chatJson.choices?.[0]?.message?.content || "";
-
     return {
       statusCode: 200,
-      body: JSON.stringify({ reply: assistantReply, input: userText }),
+      body: JSON.stringify({ text: chatJson.choices[0].message.content }),
     };
-  } catch (err) {
-    console.error("Global error:", err);
+  } catch (error) {
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: "Server error", details: err.message }),
+      body: JSON.stringify({ error: "Unexpected error", details: error.message }),
     };
   }
 };
