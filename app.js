@@ -1,10 +1,17 @@
 let mediaRecorder, audioChunks = [];
-let ttsEnabled = true;
+
+// ✅ сохраняем состояние озвучки между сессиями
+let ttsEnabled = localStorage.getItem("ttsEnabled") !== "false";
 
 const sessionId = localStorage.getItem('sessionId') || crypto.randomUUID();
 localStorage.setItem('sessionId', sessionId);
 const history = JSON.parse(localStorage.getItem('history') || '[]');
 
+// 🎛️ Обновляем надпись на кнопке озвучки при загрузке
+const ttsToggle = document.getElementById("ttsToggle");
+updateTtsToggle();
+
+// --- МИКРОФОН ---
 async function startRecording() {
   const status = document.getElementById("status");
   status.innerText = "🎙️ Слушаю...";
@@ -35,6 +42,7 @@ async function startRecording() {
   setTimeout(() => mediaRecorder.stop(), 5000);
 }
 
+// --- ВЫВОД В ЧАТ ---
 function addToChat(question, answer) {
   const container = document.getElementById("chat");
   const wrapper = document.createElement("div");
@@ -52,7 +60,7 @@ function addToChat(question, answer) {
   wrapper.appendChild(aDiv);
   container.prepend(wrapper);
 
-  speakText(answer); // 🔊 озвучка
+  if (ttsEnabled) speakText(answer); // 🔊 озвучка
 
   history.push({ role: "user", content: question });
   history.push({ role: "assistant", content: answer });
@@ -60,9 +68,10 @@ function addToChat(question, answer) {
   localStorage.setItem("history", JSON.stringify(history));
 }
 
+// --- ВСПОМОГАТЕЛЬНЫЕ ---
 function highlightText(text) {
-  text = text.replace(/(\\d+[\\s\\d]*€)/g, '<span class="highlight-price">$1</span>');
-  text = text.replace(/(\\d+\\s?м²)/g, '<span class="highlight-area">$1</span>');
+  text = text.replace(/(\d+[\s\d]*€)/g, '<span class="highlight-price">$1</span>');
+  text = text.replace(/(\d+\s?м²)/g, '<span class="highlight-area">$1</span>');
   text = text.replace(/(Милан|Рим|Неаполь|Флоренция|Турин)/gi, '<span class="highlight-city">$1</span>');
   return text;
 }
@@ -76,19 +85,29 @@ function blobToBase64(blob) {
   });
 }
 
+// --- ОЗВУЧКА ---
 function speakText(text) {
-  if (!ttsEnabled) return;
   if (!window.speechSynthesis) return;
-
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = "ru-RU";
   utterance.rate = 1;
   utterance.pitch = 1;
   utterance.volume = 1;
-  window.speechSynthesis.cancel();
-  window.speechSynthesis.speak(utterance);
+
+  // ждём, пока загрузятся голоса
+  const speak = () => {
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utterance);
+  };
+
+  if (speechSynthesis.getVoices().length === 0) {
+    window.speechSynthesis.onvoiceschanged = speak;
+  } else {
+    speak();
+  }
 }
 
+// --- ТЕКСТОВЫЙ ЗАПРОС ---
 document.getElementById("sendBtn").addEventListener("click", async () => {
   const input = document.getElementById("input");
   const userText = input.value.trim();
@@ -113,10 +132,14 @@ document.getElementById("sendBtn").addEventListener("click", async () => {
 
 document.getElementById("speakBtn").addEventListener("click", () => startRecording());
 
-// 🎛️ Переключатель озвучки
-const ttsToggle = document.getElementById("ttsToggle");
+// --- ПЕРЕКЛЮЧАТЕЛЬ ОЗВУЧКИ ---
 ttsToggle.addEventListener("click", () => {
   ttsEnabled = !ttsEnabled;
+  localStorage.setItem("ttsEnabled", ttsEnabled);
+  updateTtsToggle();
+});
+
+function updateTtsToggle() {
   if (ttsEnabled) {
     ttsToggle.classList.remove("off");
     ttsToggle.textContent = "🔊 Озвучка включена";
@@ -126,4 +149,4 @@ ttsToggle.addEventListener("click", () => {
     ttsToggle.textContent = "🔇 Озвучка выключена";
     ttsToggle.title = "Нажмите, чтобы включить";
   }
-});
+}
