@@ -32,7 +32,12 @@
   </div>
 
   <div>
-    <input type="text" id="textInput" placeholder="Или напишите свой запрос здесь..." />
+    <input
+      type="text"
+      id="textInput"
+      placeholder="Или напишите свой запрос здесь..."
+      onkeydown="handleKey(event)"
+    />
     <button onclick="sendText()">📤 Отправить текст</button>
   </div>
 
@@ -42,5 +47,12 @@
   </div>
 
   <script src="app.js"></script>
+  <script>
+    function handleKey(e) {
+      if (e.key === "Enter") {
+        sendText();
+      }
+    }
+  </script>
 </body>
 </html>
