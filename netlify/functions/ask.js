@@ -63,9 +63,12 @@ exports.handler = async function (event) {
       };
     }
 
+    const responseText = chatJson?.choices?.[0]?.message?.content || "🤖 Нет ответа от ИИ";
+    console.log("OpenAI response:", JSON.stringify(chatJson, null, 2));
+
     return {
       statusCode: 200,
-      body: JSON.stringify({ text: chatJson.choices[0].message.content }),
+      body: JSON.stringify({ text: responseText }),
     };
   } catch (error) {
     return {
