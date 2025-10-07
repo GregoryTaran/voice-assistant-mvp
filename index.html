@@ -1,10 +1,11 @@
+
 <!DOCTYPE html>
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Нейро-агент ХАБ — Новостройки Италии</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <header>
@@ -12,13 +13,8 @@
   </header>
 
   <main>
-    <button id="soundToggle" class="sound-on">
-      <div class="wave-container">
-        <div class="bar bar1"></div>
-        <div class="bar bar2"></div>
-        <div class="bar bar3"></div>
-      </div>
-      🔊 Озвучка включена
+    <button id="voiceToggle" class="voice-btn">
+      🔊 Озвучка <span class="waves" id="waves"></span>
     </button>
 
     <textarea id="input" placeholder="Напишите или скажите свой запрос..."></textarea>
@@ -29,7 +25,7 @@
     </div>
 
     <div class="examples">
-      <strong>Примеры запросов:</strong>
+      <strong>Примеры запросов:</strong><br>
       • Квартира в Милане до 250 000 €<br>
       • Новостройка у моря недорого<br>
       • Покажи варианты с рассрочкой<br>

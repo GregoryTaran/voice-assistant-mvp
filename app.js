@@ -1,86 +1,75 @@
+
 const input = document.getElementById("input");
 const chatHistory = document.getElementById("chatHistory");
 const speakBtn = document.getElementById("speakBtn");
 const sendBtn = document.getElementById("sendBtn");
-const soundToggle = document.getElementById("soundToggle");
+const voiceToggle = document.getElementById("voiceToggle");
+const waves = document.getElementById("waves");
 
-let soundEnabled = true;
+let voiceEnabled = true;
+const synth = window.speechSynthesis;
 
-// Toggle sound
-soundToggle.addEventListener("click", () => {
-  soundEnabled = !soundEnabled;
-  soundToggle.classList.toggle("sound-off");
-  soundToggle.innerHTML = soundEnabled
-    ? '<div class="wave-container"><div class="bar bar1"></div><div class="bar bar2"></div><div class="bar bar3"></div></div> 🔊 Озвучка включена'
-    : '<div class="wave-container"><div class="bar bar1"></div><div class="bar bar2"></div><div class="bar bar3"></div></div> 🔇 Озвучка выключена';
-});
-
-function speak(text) {
-  if (!soundEnabled) return;
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = "ru-RU";
-  speechSynthesis.speak(utterance);
+// История
+function loadHistory() {
+  const saved = sessionStorage.getItem("hub_history");
+  if (!saved) return;
+  const history = JSON.parse(saved);
+  history.forEach(entry => appendMessage(entry.q, entry.a, false));
 }
 
-function appendMessage(q, a) {
-  const wrapper = document.createElement("div");
+function saveMessage(q, a) {
+  const existing = JSON.parse(sessionStorage.getItem("hub_history") || "[]");
+  existing.unshift({ q, a });
+  sessionStorage.setItem("hub_history", JSON.stringify(existing.slice(0, 10)));
+}
+
+function appendMessage(q, a, save = true) {
+  const wrap = document.createElement("div");
+
   const qDiv = document.createElement("div");
-  const aDiv = document.createElement("div");
-
   qDiv.className = "question";
-  aDiv.className = "answer";
-
   qDiv.textContent = "Вопрос: " + q;
+
+  const aDiv = document.createElement("div");
+  aDiv.className = "answer";
   aDiv.textContent = "Ответ: " + a;
 
-  wrapper.appendChild(qDiv);
-  wrapper.appendChild(aDiv);
+  wrap.appendChild(qDiv);
+  wrap.appendChild(aDiv);
+  chatHistory.insertBefore(wrap, chatHistory.firstChild);
 
-  chatHistory.insertBefore(wrapper, chatHistory.firstChild);
-
-  speak(a);
+  if (save) saveMessage(q, a);
+  if (voiceEnabled) speakText(a);
 }
 
-async function sendToHub(userText, audioBase64 = null) {
-  const body = audioBase64
-    ? { audio: audioBase64, shouldGreet: false }
-    : { text: userText, shouldGreet: false };
+function speakText(text) {
+  const utterance = new SpeechSynthesisUtterance(text);
+  synth.speak(utterance);
+}
 
+// Отправка
+async function sendToHub(userText) {
+  appendMessage(userText, "⏳ Ждём ответ...");
   const res = await fetch("/.netlify/functions/ask", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body)
+    body: JSON.stringify({ text: userText })
   });
-
   const data = await res.json();
-  const answer = data.text || "Нет ответа.";
-
-  appendMessage(userText || data.transcript, answer);
-  input.value = "";
+  const answer = data.text || "Ответ не получен.";
+  appendMessage(userText, answer);
 }
+
+// Кнопка
+voiceToggle.addEventListener("click", () => {
+  voiceEnabled = !voiceEnabled;
+  voiceToggle.classList.toggle("active", voiceEnabled);
+  waves.style.visibility = voiceEnabled ? "visible" : "hidden";
+});
 
 sendBtn.addEventListener("click", () => {
   const text = input.value.trim();
   if (text) sendToHub(text);
 });
 
-speakBtn.addEventListener("click", async () => {
-  if (!navigator.mediaDevices) return alert("Микрофон не поддерживается.");
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  const recorder = new MediaRecorder(stream);
-  const chunks = [];
-  recorder.ondataavailable = e => chunks.push(e.data);
-  recorder.start();
-
-  setTimeout(() => recorder.stop(), 5000);
-
-  recorder.onstop = async () => {
-    const blob = new Blob(chunks, { type: "audio/webm" });
-    const reader = new FileReader();
-    reader.onloadend = async () => {
-      const base64 = reader.result.split(",")[1];
-      await sendToHub("", base64);
-    };
-    reader.readAsDataURL(blob);
-  };
-});
+loadHistory();
