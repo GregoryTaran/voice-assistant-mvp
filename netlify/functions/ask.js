@@ -1,30 +1,42 @@
 const fetch = require("node-fetch");
+const FormData = require("form-data");
 const Papa = require("papaparse");
 
-// 📊 URL твоей таблицы Google Sheets
-const CSV_URL = "https://docs.google.com/spreadsheets/d/1oRxbMU9KR9TdWVEIpg1Q4O9R_pPrHofPmJ1y2_hO09Q/gviz/tq?tqx=out:csv&sheet=apartments";
+// ⚙️ Твоя таблица (лист: apartments)
+const CSV_URL =
+  "https://docs.google.com/spreadsheets/d/1oRxbMU9KR9TdWVEIpg1Q4O9R_pPrHofPmJ1y2_hO09Q/gviz/tq?tqx=out:csv&sheet=apartments";
 
-// 1️⃣ Загрузка данных из Google Sheets
+// ⚙️ Системный промт из Google Docs (как и хотели)
+const SYSTEM_PROMPT_URL =
+  "https://docs.google.com/document/d/1_N8EDELJy4Xk6pANqu4OK50fQjiixQDfR4o_xhuk1no/export?format=txt";
+
+// 1) Загружаем актуальные данные из Google Sheets
 async function loadApartments() {
   const res = await fetch(CSV_URL);
+  if (!res.ok) throw new Error("Не удалось получить CSV из Google Sheets");
   const csvText = await res.text();
-  const parsed = Papa.parse(csvText, { header: true });
-  return parsed.data;
+  const parsed = Papa.parse(csvText, { header: true, skipEmptyLines: true });
+  return parsed.data; // массив объектов по заголовкам колонок
 }
 
-// 2️⃣ GPT-вызов — понимание смысла запроса
+// 2) GPT-1: понять запрос и вернуть JSON (intent + filters)
 async function understandIntent(userText) {
-  const prompt = `
-Ты — ИИ аналитик, который переводит человеческий запрос о недвижимости в структурированный JSON.
-Анализируй, что пользователь хочет, и возвращай только JSON без комментариев.
+  const system = `
+Ты — аналитик запросов о недвижимости. 
+Задача: перевести пользовательский запрос в JSON без пояснений, без кода, без форматирования.
+Формат ответа ТОЛЬКО один объект JSON. Никакого текста вокруг.
 
-Пример:
+Примеры:
 "Покажи квартиры в Милане до 150 тысяч евро"
 → {"intent":"search_apartments","filters":{"city":"Милан","max_price":150000}}
 
-Если информации мало, добавь только то, что есть.`;
+"Какие города доступны?"
+→ {"intent":"list_cities"}
 
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+Если данных мало, верни только то, что можно понять.
+`;
+
+  const resp = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
@@ -32,44 +44,66 @@ async function understandIntent(userText) {
     },
     body: JSON.stringify({
       model: "gpt-3.5-turbo",
+      temperature: 0.2,
       messages: [
-        { role: "system", content: prompt },
-        { role: "user", content: userText },
-      ],
-      temperature: 0.3,
+        { role: "system", content: system },
+        { role: "user", content: userText }
+      ]
     }),
   });
 
-  const data = await res.json();
-  const raw = data?.choices?.[0]?.message?.content?.trim();
+  const data = await resp.json();
+  const raw = data?.choices?.[0]?.message?.content?.trim() || "{}";
+
+  // Пытаемся аккуратно вытащить JSON, даже если модель обернула его в форматирование
+  const jsonMatch = raw.match(/\{[\s\S]*\}$/);
+  const jsonStr = jsonMatch ? jsonMatch[0] : raw;
   try {
-    return JSON.parse(raw);
-  } catch {
-    console.error("Ошибка парсинга JSON от GPT:", raw);
+    return JSON.parse(jsonStr);
+  } catch (e) {
+    console.error("Не удалось распарсить JSON от GPT:", raw);
     return null;
   }
 }
 
-// 3️⃣ Фильтрация базы (исполнение запроса ИИ)
-function filterByIntent(apartments, intent) {
-  if (!intent || !intent.filters) return [];
-  const { city, max_price } = intent.filters;
-  return apartments.filter(ap => {
-    const matchCity = city ? ap["Город"]?.toLowerCase().includes(city.toLowerCase()) : true;
-    const matchPrice = max_price ? Number(ap["Общая цена (€)"]) <= max_price : true;
-    return matchCity && matchPrice;
-  });
+// 3) Исполнить JSON-запрос ИИ над таблицей
+function executeIntent(apartments, intentObj) {
+  if (!intentObj || !intentObj.intent) return { results: [], meta: { intent: "unknown" } };
+
+  const intent = intentObj.intent;
+  const filters = intentObj.filters || {};
+
+  // Специальный кейс: список городов
+  if (intent === "list_cities") {
+    const cities = [...new Set(apartments.map(a => (a["Город"] || "").trim()))].filter(Boolean);
+    return { results: cities.map(c => ({ city: c })), meta: { intent } };
+  }
+
+  // Поиск квартир
+  if (intent === "search_apartments") {
+    const city = filters.city ? String(filters.city).toLowerCase() : null;
+    const maxPrice = filters.max_price != null ? Number(filters.max_price) : null;
+
+    const results = apartments.filter(ap => {
+      const apCity = (ap["Город"] || "").toLowerCase();
+      const total = Number(ap["Общая цена (€)"] || ap["Общая цена"] || 0);
+      const cityOk = city ? apCity.includes(city) : true;
+      const priceOk = maxPrice ? total <= maxPrice : true;
+      return cityOk && priceOk;
+    });
+
+    return { results, meta: { intent, filters } };
+  }
+
+  // Можно добавлять другие intent-ы по мере надобности
+  return { results: [], meta: { intent: "unsupported" } };
 }
 
-// 4️⃣ GPT-вызов — формулировка финального ответа
-async function generateAnswer(userText, results) {
-  const systemPrompt = `
-Ты — голосовой ассистент проекта "Ясность".
-Ты получаешь данные о квартирах в виде JSON и должен сформулировать понятный человеку ответ.
-Начни с фразы: "Добро пожаловать в нейрость Ясность."
-`;
+// 4) GPT-2: оформить ответ красиво, с учётом системного промта из Google Docs
+async function generateAnswer(userText, resultsSlice) {
+  const systemPrompt = await fetch(SYSTEM_PROMPT_URL).then(r => r.text());
 
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+  const resp = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
@@ -77,46 +111,71 @@ async function generateAnswer(userText, results) {
     },
     body: JSON.stringify({
       model: "gpt-3.5-turbo",
+      temperature: 0.7,
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userText },
-        { role: "assistant", content: JSON.stringify(results.slice(0, 10)) }
-      ],
-      temperature: 0.7,
+        // Передаём найденные данные как JSON (до 10 элементов, чтобы не раздувать)
+        { role: "assistant", content: JSON.stringify(resultsSlice) }
+      ]
     }),
   });
 
-  const data = await res.json();
+  const data = await resp.json();
   return data?.choices?.[0]?.message?.content || "🤖 Нет ответа.";
 }
 
-// 5️⃣ Главный обработчик
 exports.handler = async function (event) {
   try {
-    const body = JSON.parse(event.body);
-    const userText = body.text || "";
+    const body = JSON.parse(event.body || "{}");
+    let userText = (body.text || "").trim();
 
-    // Этап 1: GPT понимает смысл
-    const intent = await understandIntent(userText);
+    // 🎤 Если пришло аудио — расшифровываем в текст через Whisper
+    if (!userText && body.audio) {
+      let audioBase64 = body.audio;
+      if (audioBase64.startsWith("data:")) {
+        audioBase64 = audioBase64.split(",")[1];
+      }
+      const audioBuffer = Buffer.from(audioBase64, "base64");
+      const form = new FormData();
+      form.append("file", audioBuffer, { filename: "audio.webm", contentType: "audio/webm" });
+      form.append("model", "whisper-1");
 
-    // Этап 2: Загружаем базу
+      const whisperRes = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
+        body: form,
+      });
+
+      const whisperJson = await whisperRes.json();
+      if (!whisperRes.ok) {
+        return { statusCode: 500, body: JSON.stringify({ error: "Whisper failed", details: whisperJson }) };
+      }
+      userText = (whisperJson.text || "").trim();
+    }
+
+    if (!userText) {
+      return { statusCode: 400, body: JSON.stringify({ error: "Пустой запрос" }) };
+    }
+
+    // 1) GPT-1 понимает, что хотел пользователь
+    const intentObj = await understandIntent(userText);
+
+    // 2) Загружаем свежие данные из таблицы
     const apartments = await loadApartments();
 
-    // Этап 3: ИИ-запрос исполняется на сервере
-    const filtered = filterByIntent(apartments, intent);
+    // 3) Исполняем запрос ИИ к базе
+    const { results } = executeIntent(apartments, intentObj);
 
-    // Этап 4: GPT формулирует красивый ответ
-    const responseText = await generateAnswer(userText, filtered);
+    // 4) GPT-2 формирует финальный ответ
+    const answer = await generateAnswer(userText, results.slice(0, 10));
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ text: responseText }),
+      body: JSON.stringify({ text: answer, query: userText }),
     };
-  } catch (error) {
-    console.error("Ошибка:", error);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: error.message }),
-    };
+  } catch (e) {
+    console.error(e);
+    return { statusCode: 500, body: JSON.stringify({ error: e.message }) };
   }
 };
