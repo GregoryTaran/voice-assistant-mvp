@@ -6,8 +6,10 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: flex-start;
+  min-height: 100vh;
+  color: #222;
 }
-
 header {
   background: #fff;
   width: 100%;
@@ -15,88 +17,58 @@ header {
   box-shadow: 0 1px 4px rgba(0,0,0,0.1);
   text-align: center;
 }
-
 main {
-  width: 100%;
   max-width: 650px;
+  width: 90%;
+  margin-top: 2rem;
   background: #fff;
-  padding: 2rem;
-  margin-top: 1rem;
   border-radius: 1rem;
   box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  padding: 2rem;
 }
-
 textarea {
   width: 100%;
   height: 100px;
-  border: 1px solid #ccc;
-  padding: 1rem;
-  font-size: 1rem;
   border-radius: 0.5rem;
+  border: 1px solid #ccc;
+  padding: 0.8rem;
   resize: none;
+  font-size: 1rem;
 }
-
-.voice-btn {
-  display: flex;
-  justify-content: center;
-  align-items: center;
+.buttons, .examples {
+  margin-top: 1rem;
+}
+button {
   width: 100%;
-  background: #e0e0e0;
-  padding: 1rem;
+  padding: 0.8rem;
+  font-size: 1rem;
   border: none;
   border-radius: 0.6rem;
-  margin-bottom: 1rem;
-  font-size: 1rem;
   cursor: pointer;
-  position: relative;
 }
-
-.voice-btn.active {
-  background: #c8e6c9;
-}
-
-.waves {
-  display: inline-block;
-  width: 30px;
-  height: 20px;
-  margin-left: 10px;
-}
-
-.waves::before {
-  content: "▁▃▅";
-  display: inline-block;
-  animation: wave 0.8s infinite ease-in-out;
-}
-
-@keyframes wave {
-  0% { transform: scaleY(1); }
-  50% { transform: scaleY(1.5); }
-  100% { transform: scaleY(1); }
-}
-
+#toggleSound.sound-on { background: #ccc; color: #111; }
+#toggleSound.sound-off { background: #eee; color: #999; }
 .examples {
-  background: #f1f1f1;
+  font-size: 0.9rem;
+  background: #f1f3f5;
   padding: 1rem;
-  margin-top: 1rem;
   border-radius: 0.5rem;
-  font-size: 0.95rem;
+  border: 1px solid #ddd;
 }
-
 #chatHistory {
-  margin-top: 1rem;
+  margin-top: 1.5rem;
   background: #f9f9f9;
   padding: 1rem;
   border-radius: 0.5rem;
-  border: 1px solid #ccc;
+  border: 1px solid #ddd;
 }
-
 .question {
   font-weight: bold;
   color: #1d3557;
+  margin-top: 1rem;
 }
-
 .answer {
-  margin-bottom: 1rem;
+  margin-bottom: 0.8rem;
   padding-left: 0.5rem;
   border-left: 3px solid #457b9d;
 }
