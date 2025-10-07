@@ -91,18 +91,14 @@
       border: 1px solid #e0e0e0;
     }
 
-    .examples strong {
-      display: block;
-      margin-bottom: 0.4rem;
-      color: #1d3557;
-    }
-
     #chat {
       background: #f8f9fa;
       border-radius: 0.6rem;
       padding: 1rem;
       margin-top: 1rem;
       border: 1px solid #e5e5e5;
+      white-space: pre-wrap;
+      line-height: 1.5;
     }
 
     .question {
@@ -126,9 +122,14 @@
 
   <main>
     <div id="status">Готов слушать ваш запрос…</div>
+
+    <textarea id="input" placeholder="Напишите или скажите свой запрос..."></textarea>
+
     <div class="buttons">
-      <button onclick="startRecording()">🎤 Спросить голосом</button>
+      <button id="speakBtn">🎤 Спросить голосом</button>
+      <button id="sendBtn">📩 Отправить текстом</button>
     </div>
+
     <div class="examples">
       <strong>Примеры запросов:</strong>
       • Квартира в Милане до 250 000 €<br>
@@ -136,6 +137,7 @@
       • Покажи варианты с рассрочкой<br>
       • Премиум жильё в центре Рима
     </div>
+
     <div id="chat"></div>
   </main>
 
