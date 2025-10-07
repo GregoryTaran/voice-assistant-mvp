@@ -1,20 +1,20 @@
-let mediaRecorder, audioChunks = [];
-
-// 🧠 Память диалога (удаляется при закрытии браузера)
-const MAX_TURNS = 10; // сколько последних пар "вопрос–ответ" передавать GPT
+let mediaRecorder = null;
+let audioChunks = [];
+let currentStream = null;
+const MAX_TURNS = 10; // сколько последних пар "вопрос–ответ" отправляем GPT
 let convo = JSON.parse(sessionStorage.getItem("clarity_history") || "[]");
 
+// ===== UI & история =====
 function saveHistory() {
   sessionStorage.setItem("clarity_history", JSON.stringify(convo.slice(-MAX_TURNS * 2)));
 }
 
-// 🧩 Добавить новое сообщение на экран и в память
 function addToHistory(query, answer) {
   const history = document.getElementById("history");
   const div = document.createElement("div");
   div.className = "item";
   div.innerHTML = `
-    <div class="q">🧑‍💬 ${query || "(без текста)"}</div>
+    <div class="q">🧑‍💬 ${query || "(без текста)"} </div>
     <div class="a">🤖 ${answer || "—"}</div>
   `;
   history.prepend(div);
@@ -25,16 +25,23 @@ function addToHistory(query, answer) {
   saveHistory();
 }
 
-// 🔄 Восстановить историю при обновлении страницы
 window.addEventListener("DOMContentLoaded", () => {
   for (let i = Math.max(0, convo.length - MAX_TURNS * 2); i < convo.length; i += 2) {
     const q = convo[i]?.content || "";
     const a = convo[i + 1]?.content || "";
-    if (q || a) addToHistory(q, a);
+    if (q || a) {
+      const history = document.getElementById("history");
+      const div = document.createElement("div");
+      div.className = "item";
+      div.innerHTML = `
+        <div class="q">🧑‍💬 ${q || "(без текста)"} </div>
+        <div class="a">🤖 ${a || "—"}</div>
+      `;
+      history.prepend(div);
+    }
   }
 });
 
-// 🧮 Урезать историю перед отправкой на сервер (по длине)
 function clipConvoForSend() {
   const maxChars = 6000;
   let acc = [];
@@ -48,63 +55,156 @@ function clipConvoForSend() {
   return acc;
 }
 
-// 🎤 Запуск записи микрофона
-async function startRecording() {
+function setRecordingUI(on) {
   const status = document.getElementById("status");
-  status.innerText = "🎤 Слушаю… (5 сек)";
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  mediaRecorder = new MediaRecorder(stream);
-  audioChunks = [];
-
-  mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-  mediaRecorder.onstop = async () => {
-    status.innerText = "⏳ Распознаю и думаю…";
-    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-    const audioBase64 = await blobToBase64(audioBlob);
-
-    const res = await fetch('/.netlify/functions/ask', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        audio: audioBase64,
-        history: clipConvoForSend()
-      })
-    });
-
-    const data = await res.json();
-    addToHistory(data.query || "(голос)", data.text);
-    status.innerText = "✅ Готово";
-  };
-
-  mediaRecorder.start();
-  setTimeout(() => {
-    if (mediaRecorder.state === "recording") mediaRecorder.stop();
-  }, 5000);
+  const micBtn = document.getElementById("micBtn");
+  const sendBtn = document.getElementById("sendBtn");
+  const input = document.getElementById("textInput");
+  if (on) {
+    status.innerText = "🎤 Слушаю… (5 сек)";
+    micBtn.disabled = true;
+    sendBtn.disabled = true;
+    input.disabled = true;
+  } else {
+    status.innerText = "Готово";
+    micBtn.disabled = false;
+    sendBtn.disabled = false;
+    input.disabled = false;
+  }
 }
 
-// ⚡ Помощник: преобразовать Blob → base64
+// ===== Микрофон: гарантированное выключение =====
+function stopAllAudio(reasonText) {
+  try {
+    if (mediaRecorder) {
+      if (mediaRecorder.state === "recording") {
+        mediaRecorder.stop();
+      }
+    }
+  } catch (e) {
+    console.warn("mediaRecorder stop err:", e);
+  }
+
+  try {
+    if (currentStream) {
+      currentStream.getTracks().forEach(t => t.stop());
+      currentStream = null;
+    } else if (mediaRecorder && mediaRecorder.stream) {
+      // fallback: у некоторых браузеров есть mediaRecorder.stream
+      mediaRecorder.stream.getTracks().forEach(t => t.stop());
+    }
+  } catch (e) {
+    console.warn("stream stop err:", e);
+  }
+
+  mediaRecorder = null;
+  audioChunks = [];
+
+  const status = document.getElementById("status");
+  if (status && reasonText) {
+    status.innerText = reasonText;
+  }
+
+  // вернуть UI в норму
+  setRecordingUI(false);
+}
+
+// Срабатывает при потере видимости/фокуса/уходе со страницы:
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) {
+    stopAllAudio("⏸ Микрофон отключён — вкладка неактивна");
+  }
+});
+window.addEventListener("blur", () => {
+  stopAllAudio("⏸ Микрофон отключён — окно потеряло фокус");
+});
+window.addEventListener("pagehide", () => {
+  stopAllAudio("⏸ Микрофон отключён — страница скрыта");
+});
+
+// ===== Запись =====
+async function startRecording() {
+  try {
+    setRecordingUI(true);
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    currentStream = stream;
+    mediaRecorder = new MediaRecorder(stream);
+    audioChunks = [];
+
+    mediaRecorder.ondataavailable = (e) => {
+      if (e.data && e.data.size > 0) audioChunks.push(e.data);
+    };
+
+    mediaRecorder.onstop = async () => {
+      // если поток уже остановлен внешними событиями — ничего не делаем
+      if (!audioChunks.length) {
+        setRecordingUI(false);
+        return;
+      }
+
+      const status = document.getElementById("status");
+      if (status) status.innerText = "⏳ Распознаю и думаю…";
+
+      const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
+      // очистим заранее
+      stopAllAudio();
+
+      const audioBase64 = await blobToBase64(audioBlob);
+
+      const res = await fetch("/.netlify/functions/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          audio: audioBase64,
+          history: clipConvoForSend(),
+          shouldGreet: convo.length === 0 // приветствие только в начале сессии
+        })
+      });
+
+      const data = await res.json();
+      addToHistory(data.query || "(голос)", data.text);
+      const s2 = document.getElementById("status");
+      if (s2) s2.innerText = "✅ Готово";
+      setRecordingUI(false);
+    };
+
+    mediaRecorder.start();
+
+    // автостоп через 5 секунд
+    setTimeout(() => {
+      if (mediaRecorder && mediaRecorder.state === "recording") {
+        mediaRecorder.stop();
+      }
+    }, 5000);
+  } catch (err) {
+    console.error(err);
+    stopAllAudio("❌ Ошибка доступа к микрофону");
+  }
+}
+
 function blobToBase64(blob) {
   return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result.split(',')[1]);
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
+    const r = new FileReader();
+    r.onloadend = () => resolve(r.result.split(",")[1]);
+    r.onerror = reject;
+    r.readAsDataURL(blob);
   });
 }
 
-// ✉️ Отправить текстовый запрос
+// ===== Текстовый ввод =====
 async function sendText() {
   const input = document.getElementById("textInput");
   const text = input.value.trim();
   if (!text) return;
 
   document.getElementById("status").innerText = "⏳ Думаю…";
-  const res = await fetch('/.netlify/functions/ask', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+  const res = await fetch("/.netlify/functions/ask", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       text,
-      history: clipConvoForSend()
+      history: clipConvoForSend(),
+      shouldGreet: convo.length === 0
     })
   });
 
@@ -114,15 +214,11 @@ async function sendText() {
   input.value = "";
 }
 
-// ⌨️ Обработка Enter в поле ввода
 function handleKey(e) {
   if (e.key === "Enter") sendText();
 }
 
-// ⛔ Автоотключение микрофона при уходе с вкладки
-document.addEventListener("visibilitychange", () => {
-  if (document.hidden && mediaRecorder && mediaRecorder.state === "recording") {
-    mediaRecorder.stop();
-    document.getElementById("status").innerText = "⏸ Микрофон отключён — вкладка неактивна";
-  }
-});
+// Экспортируем старт записи для кнопки
+window.startRecording = startRecording;
+window.sendText = sendText;
+window.handleKey = handleKey;
