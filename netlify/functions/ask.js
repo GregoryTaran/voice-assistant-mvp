@@ -1,19 +1,14 @@
 
 const fetch = require("node-fetch");
 const FormData = require("form-data");
-const fs = require("fs");
-const path = require("path");
 
-const apartments = JSON.parse(
-  fs.readFileSync(path.join(__dirname, "apartments.json"), "utf-8")
-);
+const apartments = require("./apartments.json");
 
 exports.handler = async function (event) {
   try {
     const body = JSON.parse(event.body);
     let { audio, text } = body;
 
-    // 🔧 Вспомогательная фильтрация квартир
     function filterApartments({ city, maxPrice }) {
       return apartments.filter(ap => {
         const matchCity = city ? ap.city.toLowerCase() === city.toLowerCase() : true;
@@ -22,7 +17,6 @@ exports.handler = async function (event) {
       });
     }
 
-    // 🔧 Составление текста из подходящих квартир
     function formatResults(matches) {
       if (matches.length === 0) {
         return "К сожалению, по вашему запросу ничего не найдено.";
@@ -35,14 +29,12 @@ exports.handler = async function (event) {
       }
     }
 
-    // 🧠 Получаем системный промт
     const systemPromptURL = "https://docs.google.com/document/d/1_N8EDELJy4Xk6pANqu4OK50fQjiixQDfR4o_xhuk1no/export?format=txt";
     const systemPrompt = await fetch(systemPromptURL).then(res => res.text());
 
-    // 📘 Если текст — сразу обрабатываем
     if (text) {
-      const cityMatch = text.match(/в\s([А-Яа-я]+)/); // пример: "в Милане"
-      const priceMatch = text.match(/до\s(\d+)[\s€евро]/i); // пример: "до 150000 евро"
+      const cityMatch = text.match(/в\s([А-Яа-я]+)/);
+      const priceMatch = text.match(/до\s(\d+)[\s€евро]/i);
       const city = cityMatch ? cityMatch[1] : null;
       const maxPrice = priceMatch ? parseInt(priceMatch[1]) : null;
 
@@ -72,7 +64,6 @@ exports.handler = async function (event) {
       };
     }
 
-    // 🎤 Обработка аудио (Whisper)
     if (!audio) {
       return { statusCode: 400, body: "No audio provided" };
     }
@@ -106,7 +97,6 @@ exports.handler = async function (event) {
 
     const userText = whisperJson.text;
 
-    // 📗 Аналогично — фильтрация + ответ
     const cityMatch = userText.match(/в\s([А-Яа-я]+)/);
     const priceMatch = userText.match(/до\s(\d+)[\s€евро]/i);
     const city = cityMatch ? cityMatch[1] : null;
