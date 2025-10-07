@@ -1,32 +1,38 @@
+
 <!DOCTYPE html>
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ХАБ — Новостройки Италии</title>
+  <title>Нейро-агент ХАБ — Новостройки Италии</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <header>
     <h1>Нейро-агент ХАБ — Новостройки Италии</h1>
-    <button id="toggleSound" title="Озвучка">🔊</button>
   </header>
 
   <main>
-    <div id="status">Готов слушать…</div>
+    <div id="status">Готов слушать ваш запрос…</div>
     <textarea id="input" placeholder="Напишите или скажите свой запрос..."></textarea>
+
     <div class="buttons">
       <button id="speakBtn">🎤 Спросить голосом</button>
       <button id="sendBtn">📩 Отправить текстом</button>
     </div>
+
     <div class="examples">
       <strong>Примеры запросов:</strong>
       • Квартира в Милане до 250 000 €<br>
       • Новостройка у моря недорого<br>
-      • Покажи варианты с рассрочкой
+      • Покажи варианты с рассрочкой<br>
+      • Премиум жильё в центре Рима
     </div>
+
     <div id="chatHistory"></div>
   </main>
+
+  <button id="toggle-sound">🔊 Звук вкл</button>
 
   <script src="app.js"></script>
 </body>
