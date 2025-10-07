@@ -85,10 +85,8 @@
       background: #f8f9fa;
       border-radius: 0.6rem;
       padding: 1rem;
-      margin-top: 1.5rem;
+      margin-top: 1rem;
       border: 1px solid #e5e5e5;
-      max-height: 400px;
-      overflow-y: auto;
       white-space: pre-wrap;
       line-height: 1.5;
     }
@@ -96,7 +94,7 @@
     .question {
       color: #1d3557;
       font-weight: 600;
-      margin-top: 0.8rem;
+      margin-top: 1rem;
     }
 
     .answer {
@@ -107,9 +105,13 @@
     }
 
     .examples {
-      margin-top: 1.5rem;
+      margin-top: 1rem;
       font-size: 0.95rem;
       color: #555;
+      background: #f1f3f5;
+      padding: 0.8rem;
+      border-radius: 0.5rem;
+      border: 1px solid #e0e0e0;
     }
 
     .examples strong {
@@ -133,8 +135,6 @@
       <button id="sendBtn">📩 Отправить текстом</button>
     </div>
 
-    <div id="chatHistory"></div>
-
     <div class="examples">
       <strong>Примеры запросов:</strong>
       • Квартира в Милане до 250 000 €<br>
@@ -142,6 +142,8 @@
       • Покажи варианты с рассрочкой<br>
       • Премиум жильё в центре Рима
     </div>
+
+    <div id="chatHistory"></div>
   </main>
 
   <script>
@@ -154,7 +156,7 @@
       const saved = sessionStorage.getItem("hub_history");
       if (!saved) return;
       const history = JSON.parse(saved);
-      history.forEach(entry => appendMessage(entry.q, entry.a));
+      history.reverse().forEach(entry => appendMessage(entry.q, entry.a, false)); // последние сверху
     }
 
     function saveMessage(q, a) {
@@ -163,7 +165,10 @@
       sessionStorage.setItem("hub_history", JSON.stringify(existing));
     }
 
-    function appendMessage(q, a) {
+    function appendMessage(q, a, save = true) {
+      const wrapper = document.createElement("div");
+      wrapper.className = "entry";
+
       const qDiv = document.createElement("div");
       qDiv.className = "question";
       qDiv.textContent = "Вопрос: " + q;
@@ -172,9 +177,13 @@
       aDiv.className = "answer";
       aDiv.textContent = "Ответ: " + a;
 
-      chatHistory.appendChild(qDiv);
-      chatHistory.appendChild(aDiv);
-      chatHistory.scrollTop = chatHistory.scrollHeight;
+      wrapper.appendChild(qDiv);
+      wrapper.appendChild(aDiv);
+
+      // добавляем в начало (новые сверху)
+      chatHistory.insertBefore(wrapper, chatHistory.firstChild);
+
+      if (save) saveMessage(q, a);
     }
 
     async function sendToHub(userText, audioBase64 = null) {
@@ -193,8 +202,6 @@
       const answer = data.text || "Нет ответа.";
 
       appendMessage(userText, answer);
-      saveMessage(userText, answer);
-
       status.textContent = "Готов слушать ваш запрос…";
       input.value = "";
     }
