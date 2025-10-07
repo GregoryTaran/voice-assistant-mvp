@@ -81,6 +81,22 @@
       background: #1d3557;
     }
 
+    .examples {
+      margin-top: 1rem;
+      font-size: 0.95rem;
+      color: #555;
+      background: #f1f3f5;
+      padding: 0.8rem;
+      border-radius: 0.5rem;
+      border: 1px solid #e0e0e0;
+    }
+
+    .examples strong {
+      display: block;
+      margin-bottom: 0.4rem;
+      color: #1d3557;
+    }
+
     #chatHistory {
       background: #f8f9fa;
       border-radius: 0.6rem;
@@ -102,22 +118,6 @@
       margin-bottom: 0.8rem;
       padding-left: 0.5rem;
       border-left: 3px solid #457b9d;
-    }
-
-    .examples {
-      margin-top: 1rem;
-      font-size: 0.95rem;
-      color: #555;
-      background: #f1f3f5;
-      padding: 0.8rem;
-      border-radius: 0.5rem;
-      border: 1px solid #e0e0e0;
-    }
-
-    .examples strong {
-      display: block;
-      margin-bottom: 0.4rem;
-      color: #1d3557;
     }
   </style>
 </head>
@@ -156,12 +156,12 @@
       const saved = sessionStorage.getItem("hub_history");
       if (!saved) return;
       const history = JSON.parse(saved);
-      history.reverse().forEach(entry => appendMessage(entry.q, entry.a, false)); // последние сверху
+      history.forEach(entry => appendMessage(entry.q, entry.a, false));
     }
 
     function saveMessage(q, a) {
       const existing = JSON.parse(sessionStorage.getItem("hub_history") || "[]");
-      existing.push({ q, a });
+      existing.unshift({ q, a }); // добавляем новые в начало массива
       sessionStorage.setItem("hub_history", JSON.stringify(existing));
     }
 
@@ -180,7 +180,7 @@
       wrapper.appendChild(qDiv);
       wrapper.appendChild(aDiv);
 
-      // добавляем в начало (новые сверху)
+      // Добавляем в начало блока (новые сверху)
       chatHistory.insertBefore(wrapper, chatHistory.firstChild);
 
       if (save) saveMessage(q, a);
