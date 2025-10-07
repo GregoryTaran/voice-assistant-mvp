@@ -7,20 +7,38 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <header>
+    <h1>Нейро-агент ХАБ — Новостройки Италии</h1>
+  </header>
+
   <main>
-    <button id="toggle-sound" class="sound-button active">
-      <span class="icon">🔊</span>
-      <span class="label">Звук включён</span>
-      <span class="wave"></span><span class="wave"></span><span class="wave"></span>
+    <button id="soundToggle" class="sound-on">
+      <div class="wave-container">
+        <div class="bar bar1"></div>
+        <div class="bar bar2"></div>
+        <div class="bar bar3"></div>
+      </div>
+      🔊 Озвучка включена
     </button>
 
     <textarea id="input" placeholder="Напишите или скажите свой запрос..."></textarea>
+
     <div class="buttons">
       <button id="speakBtn">🎤 Спросить голосом</button>
       <button id="sendBtn">📩 Отправить текстом</button>
     </div>
+
+    <div class="examples">
+      <strong>Примеры запросов:</strong>
+      • Квартира в Милане до 250 000 €<br>
+      • Новостройка у моря недорого<br>
+      • Покажи варианты с рассрочкой<br>
+      • Премиум жильё в центре Рима
+    </div>
+
     <div id="chatHistory"></div>
   </main>
+
   <script src="app.js"></script>
 </body>
 </html>

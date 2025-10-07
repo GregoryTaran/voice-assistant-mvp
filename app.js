@@ -1,40 +1,86 @@
+const input = document.getElementById("input");
+const chatHistory = document.getElementById("chatHistory");
+const speakBtn = document.getElementById("speakBtn");
+const sendBtn = document.getElementById("sendBtn");
+const soundToggle = document.getElementById("soundToggle");
+
 let soundEnabled = true;
-const toggleBtn = document.getElementById("toggle-sound");
-const icon = toggleBtn.querySelector(".icon");
-const label = toggleBtn.querySelector(".label");
 
-toggleBtn.addEventListener("click", () => {
+// Toggle sound
+soundToggle.addEventListener("click", () => {
   soundEnabled = !soundEnabled;
-  toggleBtn.classList.toggle("active", soundEnabled);
-  icon.textContent = soundEnabled ? "🔊" : "🔇";
-  label.textContent = soundEnabled ? "Звук включён" : "Звук выключен";
+  soundToggle.classList.toggle("sound-off");
+  soundToggle.innerHTML = soundEnabled
+    ? '<div class="wave-container"><div class="bar bar1"></div><div class="bar bar2"></div><div class="bar bar3"></div></div> 🔊 Озвучка включена'
+    : '<div class="wave-container"><div class="bar bar1"></div><div class="bar bar2"></div><div class="bar bar3"></div></div> 🔇 Озвучка выключена';
 });
 
-document.getElementById("sendBtn").addEventListener("click", () => {
-  const input = document.getElementById("input").value.trim();
-  if (input) sendToHub(input);
-});
-
-async function sendToHub(text) {
-  const res = await fetch("/.netlify/functions/ask", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text })
-  });
-  const data = await res.json();
-  const answer = data.text || "Нет ответа.";
-  appendMessage(text, answer);
-  if (soundEnabled) speak(answer);
+function speak(text) {
+  if (!soundEnabled) return;
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = "ru-RU";
+  speechSynthesis.speak(utterance);
 }
 
 function appendMessage(q, a) {
-  const block = document.createElement("div");
-  block.innerHTML = `<b>Вопрос:</b> ${q}<br><b>Ответ:</b> ${a}<hr>`;
-  document.getElementById("chatHistory").prepend(block);
+  const wrapper = document.createElement("div");
+  const qDiv = document.createElement("div");
+  const aDiv = document.createElement("div");
+
+  qDiv.className = "question";
+  aDiv.className = "answer";
+
+  qDiv.textContent = "Вопрос: " + q;
+  aDiv.textContent = "Ответ: " + a;
+
+  wrapper.appendChild(qDiv);
+  wrapper.appendChild(aDiv);
+
+  chatHistory.insertBefore(wrapper, chatHistory.firstChild);
+
+  speak(a);
 }
 
-function speak(text) {
-  const utter = new SpeechSynthesisUtterance(text);
-  utter.lang = "ru-RU";
-  speechSynthesis.speak(utter);
+async function sendToHub(userText, audioBase64 = null) {
+  const body = audioBase64
+    ? { audio: audioBase64, shouldGreet: false }
+    : { text: userText, shouldGreet: false };
+
+  const res = await fetch("/.netlify/functions/ask", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+
+  const data = await res.json();
+  const answer = data.text || "Нет ответа.";
+
+  appendMessage(userText || data.transcript, answer);
+  input.value = "";
 }
+
+sendBtn.addEventListener("click", () => {
+  const text = input.value.trim();
+  if (text) sendToHub(text);
+});
+
+speakBtn.addEventListener("click", async () => {
+  if (!navigator.mediaDevices) return alert("Микрофон не поддерживается.");
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  const recorder = new MediaRecorder(stream);
+  const chunks = [];
+  recorder.ondataavailable = e => chunks.push(e.data);
+  recorder.start();
+
+  setTimeout(() => recorder.stop(), 5000);
+
+  recorder.onstop = async () => {
+    const blob = new Blob(chunks, { type: "audio/webm" });
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const base64 = reader.result.split(",")[1];
+      await sendToHub("", base64);
+    };
+    reader.readAsDataURL(blob);
+  };
+});
