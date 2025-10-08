@@ -1,9 +1,14 @@
-
 const input = document.getElementById("input");
 const chatHistory = document.getElementById("chatHistory");
 const status = document.getElementById("status");
 const toggleSound = document.getElementById("toggleSound");
 let soundEnabled = true;
+
+// флаг — взаимодействовал ли пользователь
+let userInteracted = false;
+document.addEventListener("click", () => {
+  userInteracted = true;
+});
 
 function loadHistory() {
   const saved = sessionStorage.getItem("hub_history");
@@ -35,7 +40,6 @@ function appendMessage(q, a, save = true) {
   if (save) saveMessage(q, a);
   if (soundEnabled) speak(a);
 }
-
 async function sendToHub(userText, audioBase64 = null) {
   status.textContent = "⏳ Обработка запроса...";
   const body = audioBase64
@@ -55,31 +59,46 @@ async function sendToHub(userText, audioBase64 = null) {
   status.textContent = "Готов слушать ваш запрос…";
   input.value = "";
 }
-
 function speak(text) {
+  if (!soundEnabled) {
+    console.log("🔇 Звук отключён — озвучка пропущена");
+    return;
+  }
+  if (!userInteracted) {
+    console.log("🚫 Пользователь ещё не взаимодействовал — озвучка отложена");
+    return;
+  }
+
   fetch("/.netlify/functions/tts", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text })
-  }).then(res => res.blob())
-    .then(blob => {
-      const url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
-      audio.play();
+  }).then(res => {
+    if (!res.ok) throw new Error("TTS fetch failed: " + res.status);
+    return res.blob();
+  }).then(blob => {
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    audio.onplay = () => console.log("🔈 Озвучка запущена");
+    audio.onerror = (e) => console.error("❌ Ошибка воспроизведения", e);
+    audio.play().catch(e => {
+      console.error("🚫 Не удалось воспроизвести звук", e);
     });
+  }).catch(err => {
+    console.error("❌ Ошибка в TTS:", err);
+  });
 }
-
 toggleSound.addEventListener("click", () => {
   soundEnabled = !soundEnabled;
   toggleSound.textContent = soundEnabled ? "🔊 Звук вкл." : "🔇 Звук выкл.";
-  toggleSound.className = soundEnabled ? "sound-on" : "sound-off";
+  toggleSound.classList.toggle("sound-on", soundEnabled);
+  toggleSound.classList.toggle("sound-off", !soundEnabled);
+  console.log("🎚️ Озвучка " + (soundEnabled ? "включена" : "выключена"));
 });
-
 document.getElementById("sendBtn").addEventListener("click", () => {
   const text = input.value.trim();
   if (text) sendToHub(text);
 });
-
 document.getElementById("speakBtn").addEventListener("click", async () => {
   if (!navigator.mediaDevices) return alert("Микрофон не поддерживается.");
   status.textContent = "🎙️ Слушаю (5 секунд)...";
@@ -105,5 +124,4 @@ document.getElementById("speakBtn").addEventListener("click", async () => {
     reader.readAsDataURL(blob);
   };
 });
-
 loadHistory();
