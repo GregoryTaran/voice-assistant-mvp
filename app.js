@@ -133,4 +133,13 @@ document.getElementById("speakBtn").addEventListener("click", async () => {
   };
 });
 
+// 🔹 Отправка по Enter (Shift+Enter — новая строка)
+input.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" && !event.shiftKey) {
+    event.preventDefault();
+    const text = input.value.trim();
+    if (text) sendToHub(text);
+  }
+});
+
 loadHistory();
