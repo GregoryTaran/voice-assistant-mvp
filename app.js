@@ -4,7 +4,7 @@ const status = document.getElementById("status");
 const toggleSound = document.getElementById("toggleSound");
 let soundEnabled = true;
 let currentAudio = null;
-let hasUserSentMessage = false; // 👈 Новый флаг
+let hasUserSentMessage = false;
 
 let userInteracted = false;
 document.addEventListener("click", () => {
@@ -16,14 +16,14 @@ function loadHistory() {
   if (!saved) return;
   const history = JSON.parse(saved);
   history.forEach(entry => appendMessage(entry.q, entry.a, false));
-  hasUserSentMessage = history.length > 0; // 👈 Проверяем историю
+  hasUserSentMessage = history.length > 0;
 }
 
 function saveMessage(q, a) {
   const existing = JSON.parse(sessionStorage.getItem("hub_history") || "[]");
   existing.unshift({ q, a });
   sessionStorage.setItem("hub_history", JSON.stringify(existing));
-  hasUserSentMessage = true; // 👈 Помечаем, что уже был запрос
+  hasUserSentMessage = true;
 }
 
 function appendMessage(q, a, save = true) {
@@ -54,8 +54,8 @@ async function sendToHub(userText, audioBase64 = null) {
   const isFirstMessage = !hasUserSentMessage;
 
   const body = audioBase64
-    ? { audio: audioBase64, isFirstMessage }
-    : { text: userText, isFirstMessage };
+    ? { audio: audioBase64, shouldGreet: isFirstMessage } // 👈 фикс здесь
+    : { text: userText, shouldGreet: isFirstMessage };    // 👈 и здесь
 
   const res = await fetch("/.netlify/functions/ask", {
     method: "POST",
