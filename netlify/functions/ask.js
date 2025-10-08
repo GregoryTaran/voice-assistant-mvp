@@ -11,17 +11,19 @@ exports.handler = async (event) => {
     const body = JSON.parse(event.body || "{}");
     const userText = body.text || "";
     let transcript = userText;
+    let whisperDebug = null;
 
     // Если пришло аудио — распознаём через Whisper
     if (body.audio) {
       const audioBuffer = Buffer.from(body.audio, "base64");
 
-      // ⚠️ Whisper — распознавание
+      // Whisper — распознавание
       const resp = await openai.audio.transcriptions.create({
         file: await openai.files.createReadStream(audioBuffer, "input.webm"),
         model: "whisper-1"
       });
 
+      whisperDebug = resp;
       console.log("Whisper response:", resp);
       transcript = resp.text;
     }
@@ -37,7 +39,7 @@ exports.handler = async (event) => {
       fetch(csvURL).then(r => r.text())
     ]);
 
-    // 🧠 Этап 1 — Анализ запроса
+    // Этап 1 — Анализ запроса
     const analysis = await openai.chat.completions.create({
       model: "gpt-3.5-turbo",
       messages: [
@@ -49,7 +51,7 @@ exports.handler = async (event) => {
     const intent = analysis.choices[0].message.content;
     console.log("Intent:", intent);
 
-    // 🔍 Этап 2 — Фильтрация базы
+    // Этап 2 — Фильтрация базы
     const parsed = Papa.parse(csvText, { header: true }).data;
     const relevant = parsed.filter(row =>
       JSON.stringify(row).toLowerCase().includes(transcript.toLowerCase())
@@ -60,7 +62,7 @@ exports.handler = async (event) => {
 ${row.Площадь} м² — от ${row.Цена} €`
     ).join("\n");
 
-    // 🧠 Этап 3 — Ответ
+    // Этап 3 — Ответ
     const final = await openai.chat.completions.create({
       model: "gpt-3.5-turbo",
       messages: [
@@ -70,7 +72,7 @@ ${row.Площадь} м² — от ${row.Цена} €`
           content: `Запрос: ${transcript}
 Интерпретация: ${intent}
 Подходящие объекты:
-${sampleData}`
+${sampleData || "— ничего не найдено —"}`
         }
       ]
     });
@@ -79,7 +81,9 @@ ${sampleData}`
       statusCode: 200,
       body: JSON.stringify({
         text: final.choices[0].message.content || "Нет ответа.",
-        transcript
+        transcript,
+        whisper: whisperDebug?.text || null,
+        matches: relevant.length
       })
     };
 
