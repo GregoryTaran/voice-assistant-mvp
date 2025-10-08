@@ -59,13 +59,32 @@ async function sendToHub(userText, audioBase64 = null) {
 }
 
 // === Озвучка ===
-function speak(text) {
+async function speak(text) {
+  try {
+    const res = await fetch("/.netlify/functions/tts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text })
+    });
+
+    if (res.ok) {
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audio.play();
+      return;
+    }
+  } catch (err) {
+    console.warn("Google TTS не сработал, fallback на speechSynthesis", err);
+  }
+
   const utterance = new SpeechSynthesisUtterance(text);
   speechSynthesis.speak(utterance);
 }
+
 toggleSound.addEventListener("click", () => {
   soundEnabled = !soundEnabled;
-  toggleSound.textContent = soundEnabled ? "🔊 Озвучка включена" : "🔇 Озвучка выключена";
+  toggleSound.textContent = soundEnabled ? "🔊 Звук вкл." : "🔇 Звук выкл.";
   toggleSound.className = soundEnabled ? "sound-on" : "sound-off";
 });
 
