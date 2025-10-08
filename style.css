@@ -21,10 +21,23 @@ body {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-h1 {
+.logo-header {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  justify-content: center;
+  flex-wrap: wrap;
+  text-align: left;
+}
+
+.logo-header .logo {
+  height: 100px;
+  width: auto;
+}
+
+.title-text {
   font-size: 22px;
-  text-align: center;
-  margin: 0;
+  font-weight: bold;
 }
 
 #status {
@@ -104,17 +117,18 @@ textarea {
   margin-bottom: 6px;
 }
 
-/* Адаптивность для телефонов */
 @media (max-width: 600px) {
   .controls {
     flex-direction: column;
   }
 
-  .sound-button {
+  .sound-button,
+  .main-button {
     width: 100%;
   }
 
-  .main-button {
-    width: 100%;
+  .logo-header {
+    flex-direction: column;
+    text-align: center;
   }
 }
