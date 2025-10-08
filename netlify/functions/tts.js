@@ -1,3 +1,4 @@
+// tts.js
 require("dotenv").config();
 
 const fs = require("fs");
@@ -16,7 +17,9 @@ exports.handler = async function(event) {
 
     // === 1. Получаем JSON-ключ из переменной окружения ===
     const keyJsonString = process.env.GOOGLE_KEY_JSON;
-    if (!keyJsonString) throw new Error("GOOGLE_KEY_JSON not defined");
+    if (!keyJsonString) {
+      throw new Error("GOOGLE_KEY_JSON not defined");
+    }
 
     // === 2. Декодируем и записываем временный файл с ключом ===
     const tempKeyPath = path.join("/tmp", `gcloud-key-${Date.now()}.json`);
@@ -24,41 +27,35 @@ exports.handler = async function(event) {
     try {
       keyObj = JSON.parse(keyJsonString);
     } catch (e) {
-      const unescaped = keyJsonString
-        .replace(/\\n/g, "\n")
-        .replace(/\\"/g, '"');
+      const unescaped = keyJsonString.replace(/\\n/g, "\n").replace(/\\"/g, '"');
       keyObj = JSON.parse(unescaped);
     }
     fs.writeFileSync(tempKeyPath, JSON.stringify(keyObj));
 
-    // === 3. Инициализируем клиента Google TTS ===
+    // === 3. Инициализируем клиент TTS ===
     const client = new textToSpeech.TextToSpeechClient({
       keyFilename: tempKeyPath
     });
 
-    // === 4. Определяем язык и голос ===
-    let languageCode = "ru-RU";
-    let voiceName = "ru-RU-Wavenet-B"; // Мужской голос
+    // === 4. Определяем язык (примитивно) ===
+    const isEnglish = /^[a-zA-Z0-9,.!?\s'"-]+$/.test(text);
+    const voice = isEnglish
+      ? { languageCode: "en-GB", name: "en-GB-Wavenet-B" }
+      : { languageCode: "ru-RU", name: "ru-RU-Wavenet-B" };
 
-    if (/^[a-zA-Z]/.test(text.trim())) {
-      languageCode = "en-GB";
-      voiceName = "en-GB-Wavenet-B";
-    }
-
+    // === 5. Подготовка запроса ===
     const request = {
       input: { text },
-      voice: { languageCode, name: voiceName },
+      voice,
       audioConfig: { audioEncoding: "MP3" }
     };
 
-    // === 5. Синтез речи ===
     const [response] = await client.synthesizeSpeech(request);
 
     if (!response.audioContent) {
       throw new Error("No audio content received from Google TTS");
     }
 
-    // === 6. Возвращаем аудио ===
     return {
       statusCode: 200,
       headers: { "Content-Type": "audio/mpeg" },
