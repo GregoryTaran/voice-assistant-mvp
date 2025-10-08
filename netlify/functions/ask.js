@@ -12,10 +12,11 @@ exports.handler = async (event) => {
   try {
     const body = JSON.parse(event.body || "{}");
     const userText = body.text || "";
-    const isFirst = body.shouldGreet || false; // <— переменная переименована
+    const isFirst = body.shouldGreet || false; // 👈 теперь это переменная isFirst
     let transcript = userText;
     let whisperDebug = null;
 
+    // === 1. Распознавание речи ===
     if (body.audio) {
       const audioBuffer = Buffer.from(body.audio, "base64");
       const tempPath = path.join("/tmp", `audio-${Date.now()}.webm`);
@@ -32,6 +33,7 @@ exports.handler = async (event) => {
 
     console.log("📥 Transcript:", transcript);
 
+    // === 2. Пустой запрос ===
     if (!transcript || transcript.trim().length < 2) {
       return {
         statusCode: 200,
@@ -44,6 +46,7 @@ exports.handler = async (event) => {
       };
     }
 
+    // === 3. Загрузка промптов и базы ===
     const prompt1URL = "https://docs.google.com/document/d/1AswvzYsQDm8vjqM-q28cCyitdohCc8IkurWjpfiksLY/export?format=txt";
     const prompt2URL = "https://docs.google.com/document/d/1_N8EDELJy4Xk6pANqu4OK50fQjiixQDfR4o_xhuk1no/export?format=txt";
     const csvURL = "https://docs.google.com/spreadsheets/d/1oRxbMU9KR9TdWVEIpg1Q4O9R_pPrHofPmJ1y2_hO09Q/export?format=csv";
@@ -54,6 +57,7 @@ exports.handler = async (event) => {
       fetch(csvURL).then(r => r.text())
     ]);
 
+    // === 4. Анализ запроса (intent + фильтры) ===
     const analysis = await openai.chat.completions.create({
       model: "gpt-3.5-turbo",
       messages: [
@@ -69,6 +73,7 @@ exports.handler = async (event) => {
 
     console.log("🔎 Intent:", intent);
 
+    // === 5. Фильтрация базы ===
     const parsed = Papa.parse(csvText, { header: true }).data;
     const relevant = parsed.filter(row =>
       JSON.stringify(row).toLowerCase().includes(transcript.toLowerCase())
@@ -79,6 +84,7 @@ exports.handler = async (event) => {
 ${row.Площадь} м² — от ${row.Цена} €`
     ).join("\n");
 
+    // === 6. Финальный ответ GPT ===
     const final = await openai.chat.completions.create({
       model: "gpt-3.5-turbo",
       messages: [
@@ -92,7 +98,7 @@ ${row.Площадь} м² — от ${row.Цена} €`
             message: clarifyMessage,
             results: sampleData,
             total: relevant.length,
-            isFirst // <— правильно передано!
+            isFirst // 👈 теперь ключ называется правильно
           })
         }
       ]
