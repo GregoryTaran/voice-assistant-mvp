@@ -1,5 +1,7 @@
 require("dotenv").config();
 
+const fs = require("fs");
+const path = require("path");
 const { OpenAI } = require("openai");
 const Papa = require("papaparse");
 const fetch = require("node-fetch");
@@ -13,26 +15,25 @@ exports.handler = async (event) => {
     let transcript = userText;
     let whisperDebug = null;
 
-    // Если пришло аудио — распознаём через Whisper
+    // === 1. Распознавание речи, если есть аудио ===
     if (body.audio) {
       const audioBuffer = Buffer.from(body.audio, "base64");
+      const tempPath = path.join("/tmp", `audio-${Date.now()}.webm`);
+      fs.writeFileSync(tempPath, audioBuffer);
 
-      // Whisper — распознавание
       const resp = await openai.audio.transcriptions.create({
-        file: await openai.files.createReadStream(audioBuffer, "input.webm"),
+        file: fs.createReadStream(tempPath),
         model: "whisper-1"
       });
 
       whisperDebug = resp;
-      console.log("Whisper response:", resp);
       transcript = resp.text;
     }
 
-    console.log("Final transcript:", transcript);
+    console.log("📥 Transcript:", transcript);
 
-    // Если речь не распознана / слишком короткая — возврат сразу
+    // === 2. Если ничего не распознано — отвечаем сразу ===
     if (!transcript || transcript.trim().length < 2) {
-      console.log("⛔ Whisper не расслышал речь или распознал пусто.");
       return {
         statusCode: 200,
         body: JSON.stringify({
@@ -44,7 +45,7 @@ exports.handler = async (event) => {
       };
     }
 
-    // Загружаем промпт и базу
+    // === 3. Загрузка промпта и базы ===
     const promptURL = "https://docs.google.com/document/d/1_N8EDELJy4Xk6pANqu4OK50fQjiixQDfR4o_xhuk1no/export?format=txt";
     const csvURL = "https://docs.google.com/spreadsheets/d/1oRxbMU9KR9TdWVEIpg1Q4O9R_pPrHofPmJ1y2_hO09Q/export?format=csv";
 
@@ -53,7 +54,7 @@ exports.handler = async (event) => {
       fetch(csvURL).then(r => r.text())
     ]);
 
-    // Этап 1 — Анализ запроса
+    // === 4. Анализ намерения запроса ===
     const analysis = await openai.chat.completions.create({
       model: "gpt-3.5-turbo",
       messages: [
@@ -63,9 +64,9 @@ exports.handler = async (event) => {
     });
 
     const intent = analysis.choices[0].message.content;
-    console.log("Intent:", intent);
+    console.log("🔎 Intent:", intent);
 
-    // Этап 2 — Фильтрация базы
+    // === 5. Фильтрация базы ===
     const parsed = Papa.parse(csvText, { header: true }).data;
     const relevant = parsed.filter(row =>
       JSON.stringify(row).toLowerCase().includes(transcript.toLowerCase())
@@ -76,7 +77,7 @@ exports.handler = async (event) => {
 ${row.Площадь} м² — от ${row.Цена} €`
     ).join("\n");
 
-    // Этап 3 — Ответ
+    // === 6. Финальный ответ GPT ===
     const final = await openai.chat.completions.create({
       model: "gpt-3.5-turbo",
       messages: [
@@ -92,7 +93,7 @@ ${sampleData || "— ничего не найдено —"}`
     });
 
     const gptAnswer = final.choices[0].message.content || "Нет ответа.";
-    console.log("🟡 Ответ GPT:", gptAnswer);
+    console.log("💬 Ответ GPT:", gptAnswer);
 
     return {
       statusCode: 200,
@@ -106,7 +107,7 @@ ${sampleData || "— ничего не найдено —"}`
     };
 
   } catch (err) {
-    console.error("Ошибка в ask.js:", err);
+    console.error("❌ Ошибка в ask.js:", err);
     return {
       statusCode: 500,
       body: JSON.stringify({ error: "Internal Server Error", details: err.message })
