@@ -1,4 +1,3 @@
-// === app.js ===
 const input = document.getElementById("input");
 const chatHistory = document.getElementById("chatHistory");
 const status = document.getElementById("status");
@@ -45,13 +44,14 @@ function appendMessage(q, a, save = true) {
 
   if (save) saveMessage(q, a);
 
-  if (soundEnabled) speak(a);
+  if (soundEnabled) {
+    speak(a);
+  }
 }
 
 async function sendToHub(userText, audioBase64 = null) {
   status.textContent = "⏳ Обработка запроса...";
   const isFirstMessage = !hasUserSentMessage;
-  console.log("🧪 Первый запрос?", isFirstMessage);
 
   const body = audioBase64
     ? { audio: audioBase64, shouldGreet: isFirstMessage }
