@@ -4,14 +4,20 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Нейро-агент ХАБ — Новостройки Италии</title>
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/x-icon" href="images/favicon.ico" />
+
+  <!-- Стили -->
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div class="container">
 
     <!-- Верхний блок -->
-    <div class="block">
-      <h1>НЕЙРО АГЕНТ "ХАБ" / НОВОСТРОЙКИ В ИТАЛИИ.</h1>
+    <div class="block logo-header">
+      <img src="images/hub-logo.png" alt="Логотип ХАБ" class="logo" />
+      <div class="title-text">НЕЙРО АГЕНТ "ХАБ" / НОВОСТРОЙКИ В ИТАЛИИ.</div>
     </div>
 
     <!-- Основной блок -->
@@ -46,14 +52,14 @@
       <div class="history">
         <strong>История запросов:</strong>
         <div id="chatHistory">
-          <!-- Здесь будет история -->
+          <!-- История будет добавляться сюда -->
         </div>
       </div>
     </div>
   </div>
 
   <script>
-    // Переключение иконки и текста у кнопки звука
+    // Переключение озвучки
     const toggleSoundBtn = document.getElementById("toggleSound");
     let soundOn = true;
 
