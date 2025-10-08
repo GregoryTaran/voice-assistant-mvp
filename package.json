@@ -1,8 +1,9 @@
 {
-  "name": "voice-assistant",
-  "dependencies": {
-    "openai": "^4.30.0",
-    "node-fetch": "^2.6.9",
-    "papaparse": "^5.4.1"
-  }
-}
+      "name": "voice-assistant",
+      "dependencies": {
+        "openai": "^4.30.0",
+        "node-fetch": "^2.6.9",
+        "papaparse": "^5.4.1",
+        "dotenv": "^16.3.1"
+      }
+    }
