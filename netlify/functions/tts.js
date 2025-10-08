@@ -14,19 +14,16 @@ exports.handler = async function(event) {
       };
     }
 
-    // Получаем JSON-ключ из переменной окружения
+    // === 1. Получаем JSON-ключ из переменной окружения ===
     const keyJsonString = process.env.GOOGLE_KEY_JSON;
-    if (!keyJsonString) {
-      throw new Error("GOOGLE_KEY_JSON not defined");
-    }
+    if (!keyJsonString) throw new Error("GOOGLE_KEY_JSON not defined");
 
-    // Сохраняем временный файл ключа
+    // === 2. Декодируем и записываем временный файл с ключом ===
     const tempKeyPath = path.join("/tmp", `gcloud-key-${Date.now()}.json`);
     let keyObj;
     try {
       keyObj = JSON.parse(keyJsonString);
     } catch (e) {
-      // Если JSON содержит экранированные символы — убираем лишние слеши
       const unescaped = keyJsonString
         .replace(/\\n/g, "\n")
         .replace(/\\"/g, '"');
@@ -34,25 +31,34 @@ exports.handler = async function(event) {
     }
     fs.writeFileSync(tempKeyPath, JSON.stringify(keyObj));
 
-    // Инициализируем клиент Google TTS
+    // === 3. Инициализируем клиента Google TTS ===
     const client = new textToSpeech.TextToSpeechClient({
       keyFilename: tempKeyPath
     });
 
-    // Формируем запрос к Google TTS
+    // === 4. Определяем язык и голос ===
+    let languageCode = "ru-RU";
+    let voiceName = "ru-RU-Wavenet-B"; // Мужской голос
+
+    if (/^[a-zA-Z]/.test(text.trim())) {
+      languageCode = "en-GB";
+      voiceName = "en-GB-Wavenet-B";
+    }
+
     const request = {
       input: { text },
-      voice: { languageCode: "ru-RU", ssmlGender: "FEMALE" },
+      voice: { languageCode, name: voiceName },
       audioConfig: { audioEncoding: "MP3" }
     };
 
+    // === 5. Синтез речи ===
     const [response] = await client.synthesizeSpeech(request);
 
     if (!response.audioContent) {
       throw new Error("No audio content received from Google TTS");
     }
 
-    // Возвращаем MP3 в base64
+    // === 6. Возвращаем аудио ===
     return {
       statusCode: 200,
       headers: { "Content-Type": "audio/mpeg" },
