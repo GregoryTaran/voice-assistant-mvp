@@ -54,8 +54,8 @@ async function sendToHub(userText, audioBase64 = null) {
   const isFirstMessage = !hasUserSentMessage;
 
   const body = audioBase64
-    ? { audio: audioBase64, shouldGreet: isFirstMessage } // 👈 фикс здесь
-    : { text: userText, shouldGreet: isFirstMessage };    // 👈 и здесь
+    ? { audio: audioBase64, isFirst: isFirstMessage } // 👈 ПРАВИЛЬНО
+    : { text: userText, isFirst: isFirstMessage };    // 👈 ПРАВИЛЬНО
 
   const res = await fetch("/.netlify/functions/ask", {
     method: "POST",
