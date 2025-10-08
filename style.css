@@ -1,8 +1,8 @@
 body {
   margin: 0;
-  background: #1e1e1e; /* тёмно-серый фон */
+  background: #eee;
   font-family: Arial, sans-serif;
-  color: #f0f0f0; /* светлый текст для контраста */
+  color: #000;
 }
 
 .container {
@@ -12,7 +12,7 @@ body {
 }
 
 .header {
-  background: #2a2a2a; /* чуть светлее фон */
+  background: white;
   display: flex;
   align-items: center;
   gap: 20px;
@@ -27,11 +27,10 @@ body {
 .header h1 {
   font-size: 1.6rem;
   margin: 0;
-  color: #ffffff;
 }
 
 .main {
-  background: #2a2a2a;
+  background: white;
   margin-top: 10px;
   padding: 20px;
   box-sizing: border-box;
@@ -41,7 +40,7 @@ body {
 #status {
   margin-bottom: 10px;
   font-weight: bold;
-  color: #ffd700; /* жёлтый акцент */
+  color: #333;
 }
 
 .controls {
@@ -76,10 +75,10 @@ textarea {
   margin-bottom: 10px;
   padding: 10px;
   font-size: 1rem;
-  border: none;
+  border: 1px solid #ccc;
   border-radius: 5px;
-  background: #3a3a3a;
-  color: #fff;
+  background: #fff;
+  color: #000;
 }
 
 #sendBtn {
@@ -91,25 +90,25 @@ textarea {
 
 .examples {
   margin-bottom: 20px;
-  color: #ccc;
+  color: #444;
 }
 
 .examples strong {
-  color: #fff;
+  color: #000;
 }
 
 #chatHistory .entry {
   margin-bottom: 10px;
-  border-top: 1px solid #444;
+  border-top: 1px solid #ccc;
   padding-top: 10px;
 }
 
 .question {
   font-weight: bold;
-  color: #ffeb3b;
+  color: #000;
 }
 
 .answer {
   margin-top: 5px;
-  color: #ffffff;
+  color: #000;
 }
