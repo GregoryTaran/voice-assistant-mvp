@@ -67,7 +67,8 @@ exports.handler = async (event) => {
     );
 
     const sampleData = relevant.slice(0, 3).map(row =>
-      `${row.Город} — ${row.Адрес}\n${row.Площадь} м² — от ${row.Цена} €`
+      `${row.Город} — ${row.Адрес}
+${row.Площадь} м² — от ${row.Цена} €`
     ).join("\n");
 
     const final = await openai.chat.completions.create({
