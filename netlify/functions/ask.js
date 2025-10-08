@@ -2,7 +2,7 @@ require("dotenv").config();
 
 const { OpenAI } = require("openai");
 const Papa = require("papaparse");
-const fetch = require("node‑fetch");
+const fetch = require("node-fetch");
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
