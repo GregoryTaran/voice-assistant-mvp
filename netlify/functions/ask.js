@@ -2,7 +2,7 @@ require("dotenv").config();
 
 const { OpenAI } = require("openai");
 const Papa = require("papaparse");
-const fetch = require("node-fetch");
+const fetch = require("node‑fetch");
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -29,6 +29,20 @@ exports.handler = async (event) => {
     }
 
     console.log("Final transcript:", transcript);
+
+    // Если речь не распознана / слишком короткая — возврат сразу
+    if (!transcript || transcript.trim().length < 2) {
+      console.log("⛔ Whisper не расслышал речь или распознал пусто.");
+      return {
+        statusCode: 200,
+        body: JSON.stringify({
+          text: "Я не расслышал. Попробуйте ещё раз.",
+          transcript: transcript || "…",
+          whisper: whisperDebug?.text || null,
+          matches: 0
+        })
+      };
+    }
 
     // Загружаем промпт и базу
     const promptURL = "https://docs.google.com/document/d/1_N8EDELJy4Xk6pANqu4OK50fQjiixQDfR4o_xhuk1no/export?format=txt";
