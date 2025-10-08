@@ -1,147 +1,91 @@
+
 body {
-  background-color: #e0e0e0;
   margin: 0;
-  font-family: sans-serif;
-  display: flex;
-  justify-content: center;
+  background: #eee;
+  font-family: Arial, sans-serif;
 }
 
 .container {
   max-width: 900px;
-  width: 100%;
+  margin: 0 auto;
+  padding: 10px;
+}
+
+.header {
+  background: white;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 10px 20px;
+}
+
+.logo {
+  height: 60px;
+}
+
+.header h1 {
+  font-size: 1.6rem;
+  margin: 0;
+}
+
+.main {
+  background: white;
+  margin-top: 10px;
   padding: 20px;
   box-sizing: border-box;
 }
 
-/* Белый блок */
-.block {
-  background: white;
-  padding: 30px;
-  margin-bottom: 30px;
-  border-radius: 10px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-/* Отступ между первым и вторым блоком — 10px */
-.container .block:first-child {
+#status {
   margin-bottom: 10px;
-}
-
-/* Заголовок + логотип */
-.logo-header {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  justify-content: center;
-  flex-wrap: wrap;
-  text-align: left;
-}
-
-.logo-header .logo {
-  height: 60px; /* уменьшено с 100px */
-  width: auto;
-}
-
-.title-text {
-  font-size: 18px; /* уменьшено на 20% */
   font-weight: bold;
 }
 
-/* Статус */
-#status {
-  font-size: 18px;
-  margin-bottom: 20px;
-}
-
-/* Кнопки голос/звук */
 .controls {
   display: flex;
   gap: 10px;
-  margin-bottom: 20px;
-}
-
-.main-button {
-  flex: 1;
-  padding: 12px;
-  font-size: 16px;
-  background-color: #ddd;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-}
-
-.sound-button {
-  width: 150px;
-  padding: 12px;
-  font-size: 16px;
-  background-color: #ccc;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  text-align: center;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Текстовое поле */
-textarea {
-  width: 100%;
-  height: 80px;
-  font-size: 16px;
-  padding: 10px;
-  margin-bottom: 20px;
-  resize: none;
-  border-radius: 6px;
-  border: 1px solid #ccc;
-  box-sizing: border-box;
-}
-
-/* Кнопка "Спросить текстом" */
-#sendBtn {
-  width: 100%;
-  padding: 14px;
-  font-size: 16px;
-  border: none;
-  background-color: #333;
-  color: white;
-  border-radius: 8px;
-  cursor: pointer;
-  box-sizing: border-box;
-}
-
-/* Примеры и история */
-.examples, .history {
-  margin-top: 30px;
-}
-
-.examples strong,
-.history strong {
-  display: block;
   margin-bottom: 10px;
 }
 
-.examples ul {
-  padding-left: 20px;
+#speakBtn {
+  flex: 1;
+  padding: 10px;
+  font-size: 1rem;
 }
 
-.examples li {
-  margin-bottom: 6px;
+#toggleSound {
+  width: 150px;
+  padding: 10px;
 }
 
-/* Адаптивность для мобильных */
-@media (max-width: 600px) {
-  .controls {
-    flex-direction: column;
-  }
+textarea {
+  width: 100%;
+  height: 80px;
+  margin-bottom: 10px;
+  padding: 10px;
+  font-size: 1rem;
+}
 
-  .sound-button,
-  .main-button {
-    width: 100%;
-  }
+#sendBtn {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 20px;
+  font-size: 1rem;
+}
 
-  .logo-header {
-    flex-direction: column;
-    text-align: center;
-  }
+.examples {
+  margin-bottom: 20px;
+}
+
+#chatHistory .entry {
+  margin-bottom: 10px;
+  border-top: 1px solid #ccc;
+  padding-top: 10px;
+}
+
+.question {
+  font-weight: bold;
+}
+
+.answer {
+  margin-top: 5px;
 }

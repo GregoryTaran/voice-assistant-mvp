@@ -5,7 +5,6 @@ const status = document.getElementById("status");
 const toggleSound = document.getElementById("toggleSound");
 let soundEnabled = true;
 
-// === История ===
 function loadHistory() {
   const saved = sessionStorage.getItem("hub_history");
   if (!saved) return;
@@ -37,7 +36,6 @@ function appendMessage(q, a, save = true) {
   if (soundEnabled) speak(a);
 }
 
-// === Отправка ===
 async function sendToHub(userText, audioBase64 = null) {
   status.textContent = "⏳ Обработка запроса...";
   const body = audioBase64
@@ -58,28 +56,17 @@ async function sendToHub(userText, audioBase64 = null) {
   input.value = "";
 }
 
-// === Озвучка ===
-async function speak(text) {
-  try {
-    const res = await fetch("/.netlify/functions/tts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text })
-    });
-
-    if (res.ok) {
-      const blob = await res.blob();
+function speak(text) {
+  fetch("/.netlify/functions/tts", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text })
+  }).then(res => res.blob())
+    .then(blob => {
       const url = URL.createObjectURL(blob);
       const audio = new Audio(url);
       audio.play();
-      return;
-    }
-  } catch (err) {
-    console.warn("Google TTS не сработал, fallback на speechSynthesis", err);
-  }
-
-  const utterance = new SpeechSynthesisUtterance(text);
-  speechSynthesis.speak(utterance);
+    });
 }
 
 toggleSound.addEventListener("click", () => {
@@ -88,11 +75,11 @@ toggleSound.addEventListener("click", () => {
   toggleSound.className = soundEnabled ? "sound-on" : "sound-off";
 });
 
-// === Кнопки ===
 document.getElementById("sendBtn").addEventListener("click", () => {
   const text = input.value.trim();
   if (text) sendToHub(text);
 });
+
 document.getElementById("speakBtn").addEventListener("click", async () => {
   if (!navigator.mediaDevices) return alert("Микрофон не поддерживается.");
   status.textContent = "🎙️ Слушаю (5 секунд)...";

@@ -1,50 +1,23 @@
-require("dotenv").config();
-const fetch = require("node-fetch");
+const textToSpeech = require('@google-cloud/text-to-speech');
+const fs = require('fs');
+const util = require('util');
 
-exports.handler = async (event) => {
-  if (event.httpMethod !== "POST") {
-    return { statusCode: 405, body: "Method Not Allowed" };
-  }
+const client = new textToSpeech.TextToSpeechClient();
 
-  const { text } = JSON.parse(event.body || "{}");
-  if (!text) {
-    return { statusCode: 400, body: "No text provided" };
-  }
-
-  const apiKey = process.env.GOOGLE_API_KEY;
-  const url = `https://texttospeech.googleapis.com/v1/text:synthesize?key=${apiKey}`;
-
-  const body = {
+exports.handler = async function(event) {
+  const { text } = JSON.parse(event.body || '{}');
+  const request = {
     input: { text },
-    voice: {
-      languageCode: "ru-RU",
-      name: "ru-RU-Wavenet-A" // можно позже поменять на другой голос
-    },
-    audioConfig: {
-      audioEncoding: "MP3"
-    }
+    voice: { languageCode: 'ru-RU', ssmlGender: 'FEMALE' },
+    audioConfig: { audioEncoding: 'MP3' },
   };
 
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body)
-  });
+  const [response] = await client.synthesizeSpeech(request);
 
-  const json = await res.json();
-  if (!json.audioContent) {
-    console.error("TTS error", json);
-    return { statusCode: 500, body: JSON.stringify(json) };
-  }
-
-  const buffer = Buffer.from(json.audioContent, "base64");
   return {
     statusCode: 200,
-    headers: {
-      "Content-Type": "audio/mpeg",
-      "Cache-Control": "no-cache"
-    },
-    body: buffer.toString("base64"),
-    isBase64Encoded: true
+    headers: { "Content-Type": "audio/mpeg" },
+    body: response.audioContent.toString('base64'),
+    isBase64Encoded: true,
   };
 };
