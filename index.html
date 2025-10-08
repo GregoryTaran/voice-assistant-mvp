@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -6,37 +5,165 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Нейро-агент ХАБ — Новостройки Италии</title>
   <link rel="stylesheet" href="style.css">
+  <style>
+    body {
+      background-color: #e0e0e0;
+      margin: 0;
+      font-family: sans-serif;
+      display: flex;
+      justify-content: center;
+    }
+
+    .container {
+      width: 900px;
+      padding: 20px 0;
+    }
+
+    .block {
+      background: white;
+      padding: 30px;
+      margin-bottom: 30px;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    h1 {
+      font-size: 22px;
+      text-align: center;
+      margin: 0;
+    }
+
+    #status {
+      font-size: 18px;
+      margin-bottom: 20px;
+    }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .controls button {
+      flex: 1;
+      padding: 12px;
+      font-size: 16px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    .main-button {
+      width: 800px;
+      background-color: #ddd;
+    }
+
+    .sound-button {
+      width: 60px;
+      background-color: #ccc;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+    }
+
+    textarea {
+      width: 100%;
+      height: 80px;
+      font-size: 16px;
+      padding: 10px;
+      margin-bottom: 20px;
+      resize: none;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+
+    #sendBtn {
+      width: 100%;
+      padding: 14px;
+      font-size: 16px;
+      border: none;
+      background-color: #333;
+      color: white;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    .examples, .history {
+      margin-top: 30px;
+    }
+
+    .examples strong,
+    .history strong {
+      display: block;
+      margin-bottom: 10px;
+    }
+
+    .examples ul {
+      padding-left: 20px;
+    }
+
+    .examples li {
+      margin-bottom: 6px;
+    }
+  </style>
 </head>
 <body>
-  <header>
-    <h1>Нейро-агент ХАБ — Новостройки Италии</h1>
-  </header>
+  <div class="container">
 
-  <main>
-    <div id="status">Готов слушать ваш запрос…</div>
-
-    <button id="toggleSound" class="sound-on">
-      🔊 Озвучка включена
-    </button>
-
-    <textarea id="input" placeholder="Напишите или скажите свой запрос..."></textarea>
-
-    <div class="buttons">
-      <button id="speakBtn">🎤 Спросить голосом</button>
-      <button id="sendBtn">📩 Отправить текстом</button>
+    <!-- Верхний белый блок -->
+    <div class="block">
+      <h1>НЕЙРО АГЕНТ "ХАБ" / НОВОСТРОЙКИ В ИТАЛИИ.</h1>
     </div>
 
-    <div class="examples">
-      <strong>Примеры запросов:</strong><br>
-      • Квартира в Милане до 250 000 €<br>
-      • Новостройка у моря недорого<br>
-      • Покажи варианты с рассрочкой<br>
-      • Премиум жильё в центре Рима
+    <!-- Второй основной блок -->
+    <div class="block">
+      <!-- Первая линия -->
+      <div id="status">Готов слушать ваш запрос…</div>
+
+      <!-- Вторая линия -->
+      <div class="controls">
+        <button id="speakBtn" class="main-button">🎤 Спросить голосом</button>
+        <button id="toggleSound" class="sound-button">🔊</button>
+      </div>
+
+      <!-- Третья линия -->
+      <textarea id="input" placeholder="Напишите свой запрос..."></textarea>
+
+      <!-- Четвёртая линия -->
+      <button id="sendBtn">Отправить текстом</button>
+
+      <!-- Пятая линия -->
+      <div class="examples">
+        <strong>Примеры запросов:</strong>
+        <ul>
+          <li>Квартира в Милане до 250 000 €</li>
+          <li>Новостройка у моря недорого</li>
+          <li>Премиум жильё в центре Рима</li>
+          <li>Рассрочка в Турине</li>
+        </ul>
+      </div>
+
+      <!-- Шестая линия -->
+      <div class="history">
+        <strong>История запросов:</strong>
+        <div id="chatHistory">
+          <!-- Здесь будет история -->
+        </div>
+      </div>
+
     </div>
+  </div>
 
-    <div id="chatHistory"></div>
-  </main>
+  <script>
+    // Переключение звука
+    const toggleSoundBtn = document.getElementById("toggleSound");
+    let soundOn = true;
 
-  <script src="app.js"></script>
+    toggleSoundBtn.addEventListener("click", () => {
+      soundOn = !soundOn;
+      toggleSoundBtn.textContent = soundOn ? "🔊" : "🔇";
+    });
+  </script>
 </body>
 </html>
