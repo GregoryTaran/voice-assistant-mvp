@@ -13,6 +13,7 @@ body {
   box-sizing: border-box;
 }
 
+/* Белый блок */
 .block {
   background: white;
   padding: 30px;
@@ -21,6 +22,12 @@ body {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
+/* Отступ между первым и вторым блоком — 10px */
+.container .block:first-child {
+  margin-bottom: 10px;
+}
+
+/* Заголовок + логотип */
 .logo-header {
   display: flex;
   align-items: center;
@@ -31,20 +38,22 @@ body {
 }
 
 .logo-header .logo {
-  height: 100px;
+  height: 60px; /* уменьшено с 100px */
   width: auto;
 }
 
 .title-text {
-  font-size: 22px;
+  font-size: 18px; /* уменьшено на 20% */
   font-weight: bold;
 }
 
+/* Статус */
 #status {
   font-size: 18px;
   margin-bottom: 20px;
 }
 
+/* Кнопки голос/звук */
 .controls {
   display: flex;
   gap: 10px;
@@ -75,6 +84,7 @@ body {
   text-overflow: ellipsis;
 }
 
+/* Текстовое поле */
 textarea {
   width: 100%;
   height: 80px;
@@ -87,6 +97,7 @@ textarea {
   box-sizing: border-box;
 }
 
+/* Кнопка "Спросить текстом" */
 #sendBtn {
   width: 100%;
   padding: 14px;
@@ -99,6 +110,7 @@ textarea {
   box-sizing: border-box;
 }
 
+/* Примеры и история */
 .examples, .history {
   margin-top: 30px;
 }
@@ -117,6 +129,7 @@ textarea {
   margin-bottom: 6px;
 }
 
+/* Адаптивность для мобильных */
 @media (max-width: 600px) {
   .controls {
     flex-direction: column;
