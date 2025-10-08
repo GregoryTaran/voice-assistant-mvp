@@ -1,6 +1,5 @@
 {
   "name": "voice-assistant",
-  "type": "module",
   "dependencies": {
     "openai": "^4.30.0",
     "node-fetch": "^2.6.9",
