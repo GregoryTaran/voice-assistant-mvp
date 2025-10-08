@@ -91,13 +91,17 @@ ${sampleData || "— ничего не найдено —"}`
       ]
     });
 
+    const gptAnswer = final.choices[0].message.content || "Нет ответа.";
+    console.log("🟡 Ответ GPT:", gptAnswer);
+
     return {
       statusCode: 200,
       body: JSON.stringify({
-        text: final.choices[0].message.content || "Нет ответа.",
+        text: gptAnswer,
         transcript,
         whisper: whisperDebug?.text || null,
-        matches: relevant.length
+        matches: relevant.length,
+        rawGpt: gptAnswer
       })
     };
 
