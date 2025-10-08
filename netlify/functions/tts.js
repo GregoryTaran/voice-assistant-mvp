@@ -14,18 +14,19 @@ exports.handler = async function(event) {
       };
     }
 
-    // Получаем JSON-ключ
+    // Получаем JSON-ключ из переменной окружения
     const keyJsonString = process.env.GOOGLE_KEY_JSON;
     if (!keyJsonString) {
       throw new Error("GOOGLE_KEY_JSON not defined");
     }
 
-    // Записываем временный файл
+    // Сохраняем временный файл ключа
     const tempKeyPath = path.join("/tmp", `gcloud-key-${Date.now()}.json`);
     let keyObj;
     try {
       keyObj = JSON.parse(keyJsonString);
     } catch (e) {
+      // Если JSON содержит экранированные символы — убираем лишние слеши
       const unescaped = keyJsonString
         .replace(/\\n/g, "\n")
         .replace(/\\"/g, '"');
@@ -33,19 +34,18 @@ exports.handler = async function(event) {
     }
     fs.writeFileSync(tempKeyPath, JSON.stringify(keyObj));
 
-    // Инициализируем клиент
+    // Инициализируем клиент Google TTS
     const client = new textToSpeech.TextToSpeechClient({
       keyFilename: tempKeyPath
     });
 
-    // Подготовка запроса
+    // Формируем запрос к Google TTS
     const request = {
       input: { text },
       voice: { languageCode: "ru-RU", ssmlGender: "FEMALE" },
       audioConfig: { audioEncoding: "MP3" }
     };
 
-    // Синтезируем речь
     const [response] = await client.synthesizeSpeech(request);
 
     if (!response.audioContent) {
