@@ -1,69 +1,30 @@
 require("dotenv").config();
 
-const fs = require("fs");
-const path = require("path");
-const textToSpeech = require("@google-cloud/text-to-speech");
-
 exports.handler = async function(event) {
   try {
-    const { text } = JSON.parse(event.body || "{}");
-    if (!text || typeof text !== "string") {
+    const keyJsonString = process.env.GOOGLE_KEY_JSON;
+    const text = (JSON.parse(event.body || "{}")).text || "";
+
+    console.log("🔍 Received TTS request, text length:", text.length);
+    console.log("🔍 GOOGLE_KEY_JSON length:", keyJsonString ? keyJsonString.length : 0);
+
+    if (!keyJsonString) {
       return {
-        statusCode: 400,
-        body: JSON.stringify({ error: "Bad Request: text is required" })
+        statusCode: 500,
+        body: JSON.stringify({ error: "GOOGLE_KEY_JSON not defined" })
       };
     }
 
-    // === 1. Получаем JSON-ключ из переменной окружения ===
-    const keyJsonString = process.env.GOOGLE_KEY_JSON;
-    if (!keyJsonString) {
-      throw new Error("GOOGLE_KEY_JSON not defined");
-    }
-
-    // === 2. Декодируем и записываем временный файл с ключом ===
-    const tempKeyPath = path.join("/tmp", `gcloud-key-${Date.now()}.json`);
-    // Возможно ключ уже экранирован — попробуем парсить.
-    let keyObj;
-    try {
-      keyObj = JSON.parse(keyJsonString);
-    } catch (e) {
-      // Если JSON экранирован (с помощью \n, \\ и т.п.), попробуем исправить
-      const unescaped = keyJsonString
-        .replace(/\\n/g, "\n")
-        .replace(/\\"/g, '"');
-      keyObj = JSON.parse(unescaped);
-    }
-    fs.writeFileSync(tempKeyPath, JSON.stringify(keyObj));
-
-    // === 3. Инициализируем клиент TTS с указанием пути к файлу ключа ===
-    const client = new textToSpeech.TextToSpeechClient({
-      keyFilename: tempKeyPath
-    });
-
-    // === 4. Подготовка запроса ===
-    const request = {
-      input: { text },
-      voice: { languageCode: "ru-RU", ssmlGender: "FEMALE" },
-      audioConfig: { audioEncoding: "MP3" }
-    };
-
-    // === 5. Сам синтез речи ===
-    const [response] = await client.synthesizeSpeech(request);
-
-    if (!response.audioContent) {
-      throw new Error("No audio content received from Google TTS");
-    }
-
-    // === 6. Возвращаем MP3 в формате base64 ===
     return {
       statusCode: 200,
-      headers: { "Content-Type": "audio/mpeg" },
-      body: response.audioContent.toString("base64"),
-      isBase64Encoded: true
+      body: JSON.stringify({
+        msg: "OK, key received",
+        textLength: text.length,
+        keyLength: keyJsonString.length
+      })
     };
-
   } catch (err) {
-    console.error("Ошибка в tts.js:", err);
+    console.error("Ошибка в test-tts.js:", err);
     return {
       statusCode: 500,
       body: JSON.stringify({ error: "Internal Server Error", details: err.message })
