@@ -11,13 +11,11 @@ exports.handler = async (event) => {
   try {
     const body = JSON.parse(event.body || "{}");
     const userText = body.text || "";
-    
-    // ✅ Исправлено: теперь флаг всегда преобразуется в boolean
     const isFirst = body.shouldGreet === true || body.shouldGreet === "true";
 
     let transcript = userText;
 
-    // 🎤 Распознавание аудио (если пришёл аудиофайл)
+    // 🎤 Если аудио — распознаём через Whisper
     if (body.audio) {
       const audioBuffer = Buffer.from(body.audio, "base64");
       const tempPath = path.join("/tmp", `audio-${Date.now()}.webm`);
@@ -31,7 +29,7 @@ exports.handler = async (event) => {
       transcript = resp.text;
     }
 
-    // ⚠️ Проверка: если текст пустой или слишком короткий
+    // 🛑 Если пустой или слишком короткий текст
     if (!transcript || transcript.trim().length < 2) {
       return {
         statusCode: 200,
@@ -43,7 +41,7 @@ exports.handler = async (event) => {
       };
     }
 
-    // 📄 Промты и база
+    // 📄 Подгружаем промты и базу
     const prompt1URL = "https://docs.google.com/document/d/1AswvzYsQDm8vjqM-q28cCyitdohCc8IkurWjpfiksLY/export?format=txt";
     const prompt2URL = "https://docs.google.com/document/d/1_N8EDELJy4Xk6pANqu4OK50fQjiixQDfR4o_xhuk1no/export?format=txt";
     const csvURL = "https://docs.google.com/spreadsheets/d/1oRxbMU9KR9TdWVEIpg1Q4O9R_pPrHofPmJ1y2_hO09Q/export?format=csv";
@@ -54,21 +52,36 @@ exports.handler = async (event) => {
       fetch(csvURL).then(r => r.text())
     ]);
 
-    // 🧠 Анализ запроса (первый GPT)
+    // 🔍 Первый GPT — анализ запроса
     const analysis = await openai.chat.completions.create({
       model: "gpt-3.5-turbo",
+      temperature: 0,
       messages: [
         { role: "system", content: prompt1 },
         { role: "user", content: `Что хочет пользователь: "${transcript}"? Верни JSON.` }
       ]
     });
 
-    const parsedAnalysis = JSON.parse(analysis.choices[0].message.content);
+    // ✅ Защита от ошибок парсинга
+    let parsedAnalysis = {};
+    try {
+      parsedAnalysis = JSON.parse(analysis.choices[0].message.content);
+    } catch (e) {
+      parsedAnalysis = {
+        intent: "clarify",
+        filters: {},
+        message: "Привет! Я — Нейро-агент ХАБ. Помогаю выбрать новостройку в Италии. Пожалуйста, укажите город или ваш бюджет."
+      };
+    }
+
     const intent = parsedAnalysis.intent || "clarify";
     const filters = parsedAnalysis.filters || {};
     const clarifyMessage = parsedAnalysis.message || "";
 
-    // 📊 Обработка базы данных (Google Sheets)
+    console.log("🎯 ANALYSIS:", JSON.stringify({ transcript, intent, filters, clarifyMessage }, null, 2));
+    console.log("✅ isFirst:", isFirst);
+
+    // 🗂 Фильтрация базы
     const parsed = Papa.parse(csvText, { header: true }).data;
     const relevant = parsed.filter(row =>
       JSON.stringify(row).toLowerCase().includes(transcript.toLowerCase())
@@ -80,9 +93,10 @@ ${row.Площадь} м² — от ${row.Цена} €
 Сдача: ${row.Срок || "—"}`
     ).join("\n\n");
 
-    // 🗣️ Генерация финального ответа (второй GPT)
+    // 🧠 Второй GPT — генерация финального ответа
     const final = await openai.chat.completions.create({
       model: "gpt-3.5-turbo",
+      temperature: 0,
       messages: [
         { role: "system", content: prompt2 },
         {
@@ -102,13 +116,13 @@ ${row.Площадь} м² — от ${row.Цена} €
 
     const gptAnswer = final.choices[0].message.content || "Нет ответа.";
 
-    // ✅ Финальный ответ клиенту
     return {
       statusCode: 200,
       body: JSON.stringify({
         text: gptAnswer,
         transcript,
-        matches: relevant.length
+        matches: relevant.length,
+        isFirst // можно удалить, если не нужен на клиенте
       })
     };
 
