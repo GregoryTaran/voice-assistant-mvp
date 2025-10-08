@@ -1,8 +1,8 @@
-
 body {
   margin: 0;
-  background: #eee;
+  background: #1e1e1e; /* тёмно-серый фон */
   font-family: Arial, sans-serif;
+  color: #f0f0f0; /* светлый текст для контраста */
 }
 
 .container {
@@ -12,11 +12,12 @@ body {
 }
 
 .header {
-  background: white;
+  background: #2a2a2a; /* чуть светлее фон */
   display: flex;
   align-items: center;
   gap: 20px;
   padding: 10px 20px;
+  border-radius: 8px;
 }
 
 .logo {
@@ -26,18 +27,21 @@ body {
 .header h1 {
   font-size: 1.6rem;
   margin: 0;
+  color: #ffffff;
 }
 
 .main {
-  background: white;
+  background: #2a2a2a;
   margin-top: 10px;
   padding: 20px;
   box-sizing: border-box;
+  border-radius: 8px;
 }
 
 #status {
   margin-bottom: 10px;
   font-weight: bold;
+  color: #ffd700; /* жёлтый акцент */
 }
 
 .controls {
@@ -46,15 +50,24 @@ body {
   margin-bottom: 10px;
 }
 
-#speakBtn {
-  flex: 1;
+#speakBtn, #toggleSound, #sendBtn {
   padding: 10px;
   font-size: 1rem;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+#speakBtn {
+  flex: 1;
+  background-color: #4caf50;
+  color: white;
 }
 
 #toggleSound {
   width: 150px;
-  padding: 10px;
+  background-color: #607d8b;
+  color: white;
 }
 
 textarea {
@@ -63,29 +76,40 @@ textarea {
   margin-bottom: 10px;
   padding: 10px;
   font-size: 1rem;
+  border: none;
+  border-radius: 5px;
+  background: #3a3a3a;
+  color: #fff;
 }
 
 #sendBtn {
   width: 100%;
-  padding: 10px;
+  background-color: #2196f3;
+  color: white;
   margin-bottom: 20px;
-  font-size: 1rem;
 }
 
 .examples {
   margin-bottom: 20px;
+  color: #ccc;
+}
+
+.examples strong {
+  color: #fff;
 }
 
 #chatHistory .entry {
   margin-bottom: 10px;
-  border-top: 1px solid #ccc;
+  border-top: 1px solid #444;
   padding-top: 10px;
 }
 
 .question {
   font-weight: bold;
+  color: #ffeb3b;
 }
 
 .answer {
   margin-top: 5px;
+  color: #ffffff;
 }
