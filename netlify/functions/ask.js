@@ -11,9 +11,13 @@ exports.handler = async (event) => {
   try {
     const body = JSON.parse(event.body || "{}");
     const userText = body.text || "";
-    const isFirst = body.shouldGreet ?? false;
+    
+    // ✅ Исправлено: теперь флаг всегда преобразуется в boolean
+    const isFirst = body.shouldGreet === true || body.shouldGreet === "true";
+
     let transcript = userText;
 
+    // 🎤 Распознавание аудио (если пришёл аудиофайл)
     if (body.audio) {
       const audioBuffer = Buffer.from(body.audio, "base64");
       const tempPath = path.join("/tmp", `audio-${Date.now()}.webm`);
@@ -27,6 +31,7 @@ exports.handler = async (event) => {
       transcript = resp.text;
     }
 
+    // ⚠️ Проверка: если текст пустой или слишком короткий
     if (!transcript || transcript.trim().length < 2) {
       return {
         statusCode: 200,
@@ -38,6 +43,7 @@ exports.handler = async (event) => {
       };
     }
 
+    // 📄 Промты и база
     const prompt1URL = "https://docs.google.com/document/d/1AswvzYsQDm8vjqM-q28cCyitdohCc8IkurWjpfiksLY/export?format=txt";
     const prompt2URL = "https://docs.google.com/document/d/1_N8EDELJy4Xk6pANqu4OK50fQjiixQDfR4o_xhuk1no/export?format=txt";
     const csvURL = "https://docs.google.com/spreadsheets/d/1oRxbMU9KR9TdWVEIpg1Q4O9R_pPrHofPmJ1y2_hO09Q/export?format=csv";
@@ -48,6 +54,7 @@ exports.handler = async (event) => {
       fetch(csvURL).then(r => r.text())
     ]);
 
+    // 🧠 Анализ запроса (первый GPT)
     const analysis = await openai.chat.completions.create({
       model: "gpt-3.5-turbo",
       messages: [
@@ -61,6 +68,7 @@ exports.handler = async (event) => {
     const filters = parsedAnalysis.filters || {};
     const clarifyMessage = parsedAnalysis.message || "";
 
+    // 📊 Обработка базы данных (Google Sheets)
     const parsed = Papa.parse(csvText, { header: true }).data;
     const relevant = parsed.filter(row =>
       JSON.stringify(row).toLowerCase().includes(transcript.toLowerCase())
@@ -68,9 +76,11 @@ exports.handler = async (event) => {
 
     const sampleData = relevant.slice(0, 3).map(row =>
       `${row.Город} — ${row.Адрес}
-${row.Площадь} м² — от ${row.Цена} €`
-    ).join("\n");
+${row.Площадь} м² — от ${row.Цена} €
+Сдача: ${row.Срок || "—"}`
+    ).join("\n\n");
 
+    // 🗣️ Генерация финального ответа (второй GPT)
     const final = await openai.chat.completions.create({
       model: "gpt-3.5-turbo",
       messages: [
@@ -92,6 +102,7 @@ ${row.Площадь} м² — от ${row.Цена} €`
 
     const gptAnswer = final.choices[0].message.content || "Нет ответа.";
 
+    // ✅ Финальный ответ клиенту
     return {
       statusCode: 200,
       body: JSON.stringify({
@@ -102,6 +113,7 @@ ${row.Площадь} м² — от ${row.Цена} €`
     };
 
   } catch (err) {
+    console.error("❌ Ошибка:", err);
     return {
       statusCode: 500,
       body: JSON.stringify({
