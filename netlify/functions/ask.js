@@ -7,6 +7,16 @@ const fetch = require("node-fetch");
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
+// 🧠 Память последних сообщений (в пределах одной сессии)
+let conversationMemory = [];
+
+// Функция обновления памяти
+function updateMemory(user, assistant) {
+  conversationMemory.push({ role: "user", content: user });
+  conversationMemory.push({ role: "assistant", content: assistant });
+  if (conversationMemory.length > 6) conversationMemory = conversationMemory.slice(-6); // оставляем последние 3 пары
+}
+
 exports.handler = async (event) => {
   try {
     const body = JSON.parse(event.body || "{}");
@@ -14,12 +24,11 @@ exports.handler = async (event) => {
     const isFirst = body.shouldGreet === true || body.shouldGreet === "true";
     let transcript = userText;
 
-    // 🎙️ Распознавание аудио
+    // 🎙️ Распознавание аудио (если есть)
     if (body.audio) {
       const audioBuffer = Buffer.from(body.audio, "base64");
       const tempPath = path.join("/tmp", `audio-${Date.now()}.webm`);
       fs.writeFileSync(tempPath, audioBuffer);
-
       const resp = await openai.audio.transcriptions.create({
         file: fs.createReadStream(tempPath),
         model: "whisper-1"
@@ -27,7 +36,7 @@ exports.handler = async (event) => {
       transcript = resp.text;
     }
 
-    // ⚠️ Проверка пустого текста
+    // ⚠️ Проверка: если текст пустой
     if (!transcript || transcript.trim().length < 2) {
       return {
         statusCode: 200,
@@ -64,7 +73,7 @@ exports.handler = async (event) => {
     const filters = parsedAnalysis.filters || {};
     const clarifyMessage = parsedAnalysis.message || "";
 
-    // 📊 Обработка базы
+    // 📊 Парсим базу
     const parsed = Papa.parse(csvText, { header: true }).data;
 
     // 🧩 Разумный снимок базы
@@ -88,7 +97,6 @@ exports.handler = async (event) => {
         if (typ) types[typ] = (types[typ] || 0) + 1;
       });
 
-      // Средние значения
       const avg = arr => Math.round(arr.reduce((a, b) => a + b, 0) / arr.length);
 
       return {
@@ -100,8 +108,8 @@ exports.handler = async (event) => {
         max_area: Math.max(...areas),
         avg_area: avg(areas),
         avg_price_per_m2: avg(pricePerM2),
-        regions: regions,
-        types: types,
+        regions,
+        types,
         most_common_type: Object.entries(types).sort((a, b) => b[1] - a[1])[0]?.[0] || "Апартаменты",
         most_popular_region: Object.entries(regions).sort((a, b) => b[1] - a[1])[0]?.[0] || "Lazio"
       };
@@ -109,7 +117,7 @@ exports.handler = async (event) => {
 
     const globalStats = buildGlobalStats(parsed);
 
-    // 🧮 Примитивный отбор (пока оставляем)
+    // 🧮 Простая фильтрация по тексту
     const relevant = parsed.filter(row =>
       JSON.stringify(row).toLowerCase().includes(transcript.toLowerCase())
     );
@@ -120,29 +128,37 @@ ${row["Площадь (м²)"]} м² — от ${row["Общая цена (€)"]
 Сдача: ${row["Срок сдачи"] || "—"}`
     ).join("\n\n");
 
-    // 🧠 Генерация финального ответа (второй GPT)
+    // 💬 Сообщения GPT (с контекстом памяти)
+    const messages = [
+      { role: "system", content: prompt2 },
+      ...conversationMemory, // 🧠 контекст последних ответов
+      {
+        role: "user",
+        content: JSON.stringify({
+          transcript,
+          intent,
+          filters,
+          message: clarifyMessage,
+          results: sampleData,
+          total: relevant.length,
+          isFirst,
+          globalStats
+        })
+      }
+    ];
+
+    // 🤖 Генерация ответа
     const final = await openai.chat.completions.create({
       model: "gpt-3.5-turbo",
-      messages: [
-        { role: "system", content: prompt2 },
-        {
-          role: "user",
-          content: JSON.stringify({
-            transcript,
-            intent,
-            filters,
-            message: clarifyMessage,
-            results: sampleData,
-            total: relevant.length,
-            isFirst,
-            globalStats
-          })
-        }
-      ]
+      messages
     });
 
     const gptAnswer = final.choices[0].message.content || "Нет ответа.";
 
+    // 🧠 Обновляем память
+    updateMemory(transcript, gptAnswer);
+
+    // ✅ Ответ клиенту
     return {
       statusCode: 200,
       body: JSON.stringify({
