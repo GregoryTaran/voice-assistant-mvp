@@ -12,10 +12,9 @@ exports.handler = async (event) => {
     const body = JSON.parse(event.body || "{}");
     const userText = body.text || "";
     const isFirst = body.shouldGreet === true || body.shouldGreet === "true";
-
     let transcript = userText;
 
-    // 🎤 Если аудио — распознаём через Whisper
+    // 🎙️ Распознавание аудио
     if (body.audio) {
       const audioBuffer = Buffer.from(body.audio, "base64");
       const tempPath = path.join("/tmp", `audio-${Date.now()}.webm`);
@@ -25,11 +24,10 @@ exports.handler = async (event) => {
         file: fs.createReadStream(tempPath),
         model: "whisper-1"
       });
-
       transcript = resp.text;
     }
 
-    // 🛑 Если пустой или слишком короткий текст
+    // ⚠️ Проверка пустого текста
     if (!transcript || transcript.trim().length < 2) {
       return {
         statusCode: 200,
@@ -41,7 +39,7 @@ exports.handler = async (event) => {
       };
     }
 
-    // 📄 Подгружаем промты и базу
+    // 📄 Промты и база
     const prompt1URL = "https://docs.google.com/document/d/1AswvzYsQDm8vjqM-q28cCyitdohCc8IkurWjpfiksLY/export?format=txt";
     const prompt2URL = "https://docs.google.com/document/d/1_N8EDELJy4Xk6pANqu4OK50fQjiixQDfR4o_xhuk1no/export?format=txt";
     const csvURL = "https://docs.google.com/spreadsheets/d/1oRxbMU9KR9TdWVEIpg1Q4O9R_pPrHofPmJ1y2_hO09Q/export?format=csv";
@@ -52,51 +50,79 @@ exports.handler = async (event) => {
       fetch(csvURL).then(r => r.text())
     ]);
 
-    // 🔍 Первый GPT — анализ запроса
+    // 🧠 Анализ запроса (первый GPT)
     const analysis = await openai.chat.completions.create({
       model: "gpt-3.5-turbo",
-      temperature: 0,
       messages: [
         { role: "system", content: prompt1 },
         { role: "user", content: `Что хочет пользователь: "${transcript}"? Верни JSON.` }
       ]
     });
 
-    // ✅ Защита от ошибок парсинга
-    let parsedAnalysis = {};
-    try {
-      parsedAnalysis = JSON.parse(analysis.choices[0].message.content);
-    } catch (e) {
-      parsedAnalysis = {
-        intent: "clarify",
-        filters: {},
-        message: "Привет! Я — Нейро-агент ХАБ. Помогаю выбрать новостройку в Италии. Пожалуйста, укажите город или ваш бюджет."
-      };
-    }
-
+    const parsedAnalysis = JSON.parse(analysis.choices[0].message.content);
     const intent = parsedAnalysis.intent || "clarify";
     const filters = parsedAnalysis.filters || {};
     const clarifyMessage = parsedAnalysis.message || "";
 
-    console.log("🎯 ANALYSIS:", JSON.stringify({ transcript, intent, filters, clarifyMessage }, null, 2));
-    console.log("✅ isFirst:", isFirst);
-
-    // 🗂 Фильтрация базы
+    // 📊 Обработка базы
     const parsed = Papa.parse(csvText, { header: true }).data;
+
+    // 🧩 Разумный снимок базы
+    function buildGlobalStats(data) {
+      const valid = data.filter(r => r["общая цена (€)"] && r["площадь (м²)"]);
+
+      const prices = valid.map(r => parseFloat(r["общая цена (€)"]));
+      const areas = valid.map(r => parseFloat(r["площадь (м²)"]));
+      const pricePerM2 = valid.map(r => r["цена за м² (€)"]
+        ? parseFloat(r["цена за м² (€)"])
+        : parseFloat(r["общая цена (€)"]) / parseFloat(r["площадь (м²)"])
+      ).filter(x => !isNaN(x));
+
+      const regions = {};
+      const types = {};
+
+      valid.forEach(r => {
+        const reg = r["область"];
+        const typ = r["Тип объекта"];
+        if (reg) regions[reg] = (regions[reg] || 0) + 1;
+        if (typ) types[typ] = (types[typ] || 0) + 1;
+      });
+
+      // Средние значения
+      const avg = arr => Math.round(arr.reduce((a, b) => a + b, 0) / arr.length);
+
+      return {
+        total_properties: valid.length,
+        min_price: Math.min(...prices),
+        max_price: Math.max(...prices),
+        avg_price: avg(prices),
+        min_area: Math.min(...areas),
+        max_area: Math.max(...areas),
+        avg_area: avg(areas),
+        avg_price_per_m2: avg(pricePerM2),
+        regions: regions,
+        types: types,
+        most_common_type: Object.entries(types).sort((a, b) => b[1] - a[1])[0]?.[0] || "Апартаменты",
+        most_popular_region: Object.entries(regions).sort((a, b) => b[1] - a[1])[0]?.[0] || "Lazio"
+      };
+    }
+
+    const globalStats = buildGlobalStats(parsed);
+
+    // 🧮 Примитивный отбор (пока оставляем)
     const relevant = parsed.filter(row =>
       JSON.stringify(row).toLowerCase().includes(transcript.toLowerCase())
     );
 
     const sampleData = relevant.slice(0, 3).map(row =>
-      `${row.Город} — ${row.Адрес}
-${row.Площадь} м² — от ${row.Цена} €
-Сдача: ${row.Срок || "—"}`
+      `${row["Город"]} — ${row["Адрес"] || "Адрес не указан"}
+${row["Площадь (м²)"]} м² — от ${row["Общая цена (€)"]} €
+Сдача: ${row["Срок сдачи"] || "—"}`
     ).join("\n\n");
 
-    // 🧠 Второй GPT — генерация финального ответа
+    // 🧠 Генерация финального ответа (второй GPT)
     const final = await openai.chat.completions.create({
       model: "gpt-3.5-turbo",
-      temperature: 0,
       messages: [
         { role: "system", content: prompt2 },
         {
@@ -108,7 +134,8 @@ ${row.Площадь} м² — от ${row.Цена} €
             message: clarifyMessage,
             results: sampleData,
             total: relevant.length,
-            isFirst
+            isFirst,
+            globalStats
           })
         }
       ]
@@ -121,8 +148,7 @@ ${row.Площадь} м² — от ${row.Цена} €
       body: JSON.stringify({
         text: gptAnswer,
         transcript,
-        matches: relevant.length,
-        isFirst // можно удалить, если не нужен на клиенте
+        matches: relevant.length
       })
     };
 
