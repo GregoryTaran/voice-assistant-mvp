@@ -12,7 +12,7 @@ exports.handler = async (event) => {
   try {
     const body = JSON.parse(event.body || "{}");
     const userText = body.text || "";
-    const shouldGreet = body.shouldGreet || false;
+    const isFirst = body.shouldGreet || false; // <— переменная переименована
     let transcript = userText;
     let whisperDebug = null;
 
@@ -92,7 +92,7 @@ ${row.Площадь} м² — от ${row.Цена} €`
             message: clarifyMessage,
             results: sampleData,
             total: relevant.length,
-            shouldGreet
+            isFirst // <— правильно передано!
           })
         }
       ]
