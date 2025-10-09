@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -14,6 +13,16 @@
       <img src="images/hub-logo.png" alt="Логотип" class="logo" />
       <h1>НЕЙРО АГЕНТ "ХАБ" / НОВОСТРОЙКИ В ИТАЛИИ.</h1>
     </header>
+
+    <!-- 🔧 Отладочный блок: текущая модель и сервер -->
+    <div id="configStatus" style="
+      background: #f2f2f2;
+      padding: 10px;
+      margin: 10px 0 20px;
+      font-size: 14px;
+      border-left: 4px solid #ccc;">
+      🔄 Загрузка конфигурации...
+    </div>
 
     <main class="main">
       <div id="status">Готов слушать ваш запрос…</div>
@@ -41,5 +50,23 @@
   </div>
 
   <script src="app.js"></script>
+
+  <!-- 📜 Скрипт загрузки config.json -->
+  <script>
+    fetch('/.netlify/functions/config.json')
+      .then(res => res.json())
+      .then(cfg => {
+        document.getElementById("configStatus").innerHTML = `
+          🧠 GPT-Модель: <strong>${cfg.gpt_model}</strong><br>
+          🎙 Whisper-Сервер: <strong>${cfg.whisper_server}</strong>
+        `;
+      })
+      .catch(err => {
+        document.getElementById("configStatus").innerText =
+          "⚠️ Не удалось загрузить конфигурацию.";
+        console.error("Ошибка чтения config.json:", err);
+      });
+  </script>
+
 </body>
 </html>
