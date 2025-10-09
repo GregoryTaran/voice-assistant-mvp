@@ -75,8 +75,8 @@
 
   <div class="section">
     <h3>СЕРВЕР ВИСПЕР</h3>
-    <label><input type="radio" name="whisper_server" value="openai"> СЕРВЕР ОПЕН АИ</label>
-    <label><input type="radio" name="whisper_server" value="whisper-large-v3-turbo"> СЕРВЕР whisper-large-v3-turbo</label>
+    <label><input type="radio" name="whisper_server" value="openai"> СЕРВЕР OPENAI</label>
+    <label><input type="radio" name="whisper_server" value="whisper-large-v3-turbo"> whisper-large-v3-turbo</label>
   </div>
 
   <button onclick="saveConfig()">💾 Сохранить изменения</button>
@@ -91,15 +91,15 @@
           🎙 Whisper-Сервер: <strong>${cfg.whisper_server}</strong>
         `;
 
-        const modelInput = document.querySelector(`input[name="gpt_model"][value="${cfg.gpt_model}"]`);
+        const modelInput = document.querySelector(\`input[name="gpt_model"][value="\${cfg.gpt_model}"]\`);
         if (modelInput) modelInput.checked = true;
 
-        const whisperInput = document.querySelector(`input[name="whisper_server"][value="${cfg.whisper_server}"]`);
+        const whisperInput = document.querySelector(\`input[name="whisper_server"][value="\${cfg.whisper_server}"]\`);
         if (whisperInput) whisperInput.checked = true;
       })
       .catch(err => {
         document.getElementById("configWarning").innerText =
-          "⚠️ Не удалось загрузить config.json, используются значения по умолчанию.";
+          "⚠️ Не удалось загрузить конфигурацию.";
         console.error("Ошибка загрузки config:", err);
       });
 
@@ -113,22 +113,30 @@
         return;
       }
 
-      fetch('/.netlify/functions/update-config', {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          gpt_model: selectedModel,
-          whisper_server: selectedWhisper
-        })
-      })
-        .then(res => res.json())
-        .then(data => {
-          alert("✅ Конфигурация сохранена.");
-          location.reload();
+      const updates = [
+        { key: "gpt_model", value: selectedModel },
+        { key: "whisper_server", value: selectedWhisper }
+      ];
+
+      Promise.all(updates.map(data =>
+        fetch('/.netlify/functions/update-config', {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data)
+        }).then(res => res.json())
+      ))
+        .then(results => {
+          if (results.every(r => r.success)) {
+            alert("✅ Конфигурация успешно обновлена!");
+            location.reload();
+          } else {
+            alert("⚠️ Ошибка при обновлении одной или нескольких переменных.");
+            console.error("Результаты:", results);
+          }
         })
         .catch(err => {
-          alert("❌ Ошибка при сохранении конфигурации.");
-          console.error("Ошибка сохранения:", err);
+          alert("❌ Ошибка при сохранении.");
+          console.error("Ошибка:", err);
         });
     }
   </script>
