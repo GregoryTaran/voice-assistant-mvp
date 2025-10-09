@@ -8,18 +8,57 @@
     body {
       font-family: Arial, sans-serif;
       padding: 20px;
-      max-width: 600px;
+      max-width: 700px;
       margin: auto;
       background: #f9f9f9;
     }
     h1 { font-size: 24px; margin-bottom: 10px; }
-    .section { margin-bottom: 30px; padding: 10px; background: #fff; border: 1px solid #ddd; border-radius: 8px; }
-    label { display: block; margin: 8px 0; }
-    input[type="text"], input[type="number"] { width: 100%; padding: 6px; margin-top: 4px; }
-    button { margin-top: 10px; padding: 8px 16px; background: #0077cc; color: white; border: none; border-radius: 5px; cursor: pointer; }
-    button:hover { background: #005fa3; }
-    #configWarning { color: red; margin-bottom: 10px; }
-    .current-config { background: #eef; padding: 10px; margin-bottom: 15px; font-size: 14px; border-left: 5px solid #88c; }
+    .section {
+      margin-bottom: 30px;
+      padding: 10px;
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+    }
+    label {
+      display: block;
+      margin: 8px 0;
+      padding: 4px 8px;
+      border-radius: 5px;
+    }
+    label input[type="radio"]:checked + span {
+      font-weight: bold;
+      color: green;
+    }
+    input[type="number"] {
+      width: 100%;
+      padding: 6px;
+      margin-top: 4px;
+    }
+    button {
+      margin-top: 10px;
+      padding: 10px 18px;
+      background: #0077cc;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #005fa3;
+    }
+    #configWarning {
+      color: red;
+      margin-bottom: 10px;
+    }
+    .current-config {
+      background: #eef;
+      padding: 10px;
+      margin-bottom: 20px;
+      font-size: 14px;
+      border-left: 5px solid #88c;
+    }
   </style>
 </head>
 <body>
@@ -27,110 +66,108 @@
   <h1>Админ панель</h1>
 
   <div id="configWarning"></div>
-  <div id="currentConfig" class="current-config">Загрузка текущей конфигурации...</div>
+  <div id="currentConfig" class="current-config">🔄 Загрузка конфигурации...</div>
 
   <div class="section" id="section-model">
-    <h3>Модель GPT</h3>
-    <label><input type="radio" name="gpt_model" value="gpt-3.5-turbo"> Модель 3.5</label>
-    <label><input type="radio" name="gpt_model" value="gpt-4-1106-preview"> Модель 4 Мини</label>
-    <label><input type="radio" name="gpt_model" value="gpt-4o"> Модель 4О</label>
+    <h3>🧠 Модель GPT</h3>
+    <label><input type="radio" name="gpt_model" value="gpt-3.5-turbo"><span> Модель 3.5</span></label>
+    <label><input type="radio" name="gpt_model" value="gpt-4-1106-preview"><span> Модель 4 Mini</span></label>
+    <label><input type="radio" name="gpt_model" value="gpt-4o"><span> Модель 4 Omni</span></label>
   </div>
 
   <div class="section" id="section-whisper">
-    <h3>Сервер Whisper</h3>
-    <label><input type="radio" name="whisper_server" value="openai"> OpenAI</label>
-    <label><input type="radio" name="whisper_server" value="whisper-large-v3-turbo"> whisper-large-v3-turbo</label>
+    <h3>🎙 Сервер Whisper</h3>
+    <label><input type="radio" name="whisper_server" value="openai"><span> OpenAI</span></label>
+    <label><input type="radio" name="whisper_server" value="whisper-large-v3-turbo"><span> whisper-large-v3-turbo</span></label>
   </div>
 
   <div class="section" id="section-language">
-    <h3>Язык интерфейса</h3>
-    <label><input type="radio" name="language" value="ru"> Русский</label>
-    <label><input type="radio" name="language" value="en"> English</label>
-    <label><input type="radio" name="language" value="es"> Español</label>
-    <!-- добавь другие языки по необходимости -->
+    <h3>🌐 Язык интерфейса</h3>
+    <label><input type="radio" name="language" value="ru"><span> Русский</span></label>
+    <label><input type="radio" name="language" value="en"><span> English</span></label>
+    <label><input type="radio" name="language" value="es"><span> Español</span></label>
+    <label><input type="radio" name="language" value="de"><span> Deutsch</span></label>
+    <label><input type="radio" name="language" value="it"><span> Italiano</span></label>
+    <label><input type="radio" name="language" value="fr"><span> Français</span></label>
+    <label><input type="radio" name="language" value="uk"><span> Українська</span></label>
   </div>
 
   <div class="section" id="section-temp">
-    <h3>Температура (0.0 — 1.0)</h3>
-    <label> <input type="number" name="temperature" step="0.01" min="0" max="1"> </label>
+    <h3>🎚 Температура (0.0 — 1.0)</h3>
+    <input type="number" name="temperature" step="0.01" min="0" max="1" />
   </div>
 
-  <button onclick="saveConfig()">💾 Сохранить изменения</button>
+  <button id="saveBtn">💾 Сохранить изменения</button>
 
   <script>
-    // Загрузка текущей конфигурации
-    fetch('/.netlify/functions/read-config')
-      .then(res => res.json())
-      .then(cfg => {
-        document.getElementById("currentConfig").innerHTML = `
+    const currentConfigDiv = document.getElementById("currentConfig");
+    const warning = document.getElementById("configWarning");
+
+    async function loadConfig() {
+      try {
+        const res = await fetch('/.netlify/functions/read-config');
+        const cfg = await res.json();
+
+        currentConfigDiv.innerHTML = `
           🧠 GPT: <strong>${cfg.gpt_model}</strong><br>
           🎙 Whisper: <strong>${cfg.whisper_server}</strong><br>
           🌐 Язык: <strong>${cfg.language}</strong><br>
           🎚 Температура: <strong>${cfg.temperature}</strong>
         `;
 
-        // Установить радио-кнопки / значения
-        const m = document.querySelector(`input[name="gpt_model"][value="${cfg.gpt_model}"]`);
-        if (m) m.checked = true;
+        document.querySelector(`input[name="gpt_model"][value="${cfg.gpt_model}"]`)?.checked = true;
+        document.querySelector(`input[name="whisper_server"][value="${cfg.whisper_server}"]`)?.checked = true;
+        document.querySelector(`input[name="language"][value="${cfg.language}"]`)?.checked = true;
+        document.querySelector(`input[name="temperature"]`).value = cfg.temperature;
 
-        const w = document.querySelector(`input[name="whisper_server"][value="${cfg.whisper_server}"]`);
-        if (w) w.checked = true;
+      } catch (err) {
+        warning.innerText = "⚠️ Не удалось загрузить конфигурацию.";
+        console.error(err);
+      }
+    }
 
-        const lang = document.querySelector(`input[name="language"][value="${cfg.language}"]`);
-        if (lang) lang.checked = true;
+    async function saveConfig() {
+      const gpt = document.querySelector('input[name="gpt_model"]:checked')?.value;
+      const whisper = document.querySelector('input[name="whisper_server"]:checked')?.value;
+      const lang = document.querySelector('input[name="language"]:checked')?.value;
+      const temp = document.querySelector('input[name="temperature"]')?.value;
 
-        const tempInput = document.querySelector(`input[name="temperature"]`);
-        if (tempInput && cfg.temperature !== undefined) {
-          tempInput.value = cfg.temperature;
-        }
-      })
-      .catch(err => {
-        document.getElementById("configWarning").innerText =
-          "⚠️ Не удалось загрузить конфигурацию.";
-        console.error("Ошибка загрузки config:", err);
-      });
-
-    // Сохранение новой конфигурации
-    function saveConfig() {
-      // Считываем выбранные/введённые значения
-      const selectedModel = document.querySelector('input[name="gpt_model"]:checked')?.value;
-      const selectedWhisper = document.querySelector('input[name="whisper_server"]:checked')?.value;
-      const selectedLang = document.querySelector('input[name="language"]:checked')?.value;
-      const tempValue = document.querySelector('input[name="temperature"]')?.value;
-
-      if (!selectedModel || !selectedWhisper || !selectedLang || tempValue == null) {
-        alert("Пожалуйста, заполните все поля.");
+      if (!gpt || !whisper || !lang || temp == null) {
+        alert("Заполни все поля");
         return;
       }
 
       const updates = [
-        { key: "gpt_model", value: selectedModel },
-        { key: "whisper_server", value: selectedWhisper },
-        { key: "language", value: selectedLang },
-        { key: "temperature", value: tempValue }
+        { key: "gpt_model", value: gpt },
+        { key: "whisper_server", value: whisper },
+        { key: "language", value: lang },
+        { key: "temperature", value: temp }
       ];
 
-      Promise.all(updates.map(data =>
-        fetch('/.netlify/functions/update-config', {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(data)
-        }).then(res => res.json())
-      ))
-        .then(results => {
-          if (results.every(r => r.success)) {
-            alert("✅ Конфигурация успешно обновлена!");
-            location.reload();
-          } else {
-            alert("⚠️ Ошибка при обновлении одной или нескольких переменных.");
-            console.error("Результаты:", results);
-          }
-        })
-        .catch(err => {
-          alert("❌ Ошибка при сохранении.");
-          console.error("Ошибка:", err);
-        });
+      try {
+        const results = await Promise.all(updates.map(data =>
+          fetch('/.netlify/functions/update-config', {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data)
+          }).then(res => res.json())
+        ));
+
+        if (results.every(r => r.success)) {
+          alert("✅ Обновлено!");
+          loadConfig(); // Перерисовать, не перезагружая страницу
+        } else {
+          alert("⚠️ Ошибка при обновлении.");
+          console.error(results);
+        }
+      } catch (err) {
+        alert("❌ Ошибка сети.");
+        console.error(err);
+      }
     }
+
+    document.getElementById("saveBtn").addEventListener("click", saveConfig);
+    loadConfig();
   </script>
 
 </body>
