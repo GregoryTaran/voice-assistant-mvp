@@ -6,6 +6,15 @@
   <title>Нейро-агент ХАБ — Новостройки Италии</title>
   <link rel="icon" type="image/x-icon" href="images/favicon.ico">
   <link rel="stylesheet" href="style.css" />
+  <style>
+    #configStatus {
+      background: #eef;
+      padding: 10px;
+      margin-bottom: 15px;
+      border-left: 5px solid #669;
+      font-size: 14px;
+    }
+  </style>
 </head>
 <body>
   <div class="container">
@@ -14,15 +23,8 @@
       <h1>НЕЙРО АГЕНТ "ХАБ" / НОВОСТРОЙКИ В ИТАЛИИ.</h1>
     </header>
 
-    <!-- 🔧 Отладочный блок: текущая модель и сервер -->
-    <div id="configStatus" style="
-      background: #f2f2f2;
-      padding: 10px;
-      margin: 10px 0 20px;
-      font-size: 14px;
-      border-left: 4px solid #ccc;">
-      🔄 Загрузка конфигурации...
-    </div>
+    <!-- 🔧 Отладочная панель -->
+    <div id="configStatus">🔄 Загрузка конфигурации...</div>
 
     <main class="main">
       <div id="status">Готов слушать ваш запрос…</div>
@@ -50,10 +52,9 @@
   </div>
 
   <script src="app.js"></script>
-
-  <!-- 📜 Скрипт загрузки config.json -->
   <script>
-    fetch('/.netlify/functions/config.json')
+    // Показываем текущую конфигурацию GPT и Whisper
+    fetch('/.netlify/functions/read-config')
       .then(res => res.json())
       .then(cfg => {
         document.getElementById("configStatus").innerHTML = `
@@ -64,9 +65,8 @@
       .catch(err => {
         document.getElementById("configStatus").innerText =
           "⚠️ Не удалось загрузить конфигурацию.";
-        console.error("Ошибка чтения config.json:", err);
+        console.error("Ошибка загрузки конфигурации:", err);
       });
   </script>
-
 </body>
 </html>
