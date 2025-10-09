@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Админ панель</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f9f9f9;
+      padding: 30px;
+      line-height: 1.6;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    .section {
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+      margin-bottom: 30px;
+    }
+
+    .section h2 {
+      margin-top: 0;
+      font-size: 1.4em;
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 10px;
+      cursor: pointer;
+    }
+
+    input[type="radio"] {
+      margin-right: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Админ панель</h1>
+
+  <div class="section">
+    <h2>МОДЕЛЬ GPT</h2>
+    <label><input type="radio" name="gpt-model" value="gpt-3.5-turbo" /> Модель 3.5</label>
+    <label><input type="radio" name="gpt-model" value="gpt-4-mini" /> Модель 4 мини</label>
+    <label><input type="radio" name="gpt-model" value="gpt-4o" /> Модель 4О</label>
+  </div>
+
+  <div class="section">
+    <h2>СЕРВЕР ВИСПЕР</h2>
+    <label><input type="radio" name="whisper-server" value="openai" /> СЕРВЕР ОПЕН АИ</label>
+    <label><input type="radio" name="whisper-server" value="whisper-large-v3-turbo" /> СЕРВЕР whisper-large-v3-turbo</label>
+  </div>
+</body>
+</html>
