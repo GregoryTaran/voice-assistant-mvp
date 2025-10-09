@@ -36,13 +36,19 @@
     #status {
       margin-top: 10px;
       font-weight: bold;
-      color: green;
+    }
+    #loading {
+      text-align: center;
+      color: #666;
+      margin-bottom: 20px;
     }
   </style>
 </head>
 <body>
 
   <h1>Админ панель</h1>
+
+  <div id="loading">⏳ Загрузка конфигурации...</div>
 
   <div class="section">
     <h2>МОДЕЛЬ GPT</h2>
@@ -61,34 +67,55 @@
   <div id="status"></div>
 
   <script>
-    let selectedModel = null;
-    let selectedWhisper = null;
+    const defaultModel = "gpt-4-1106-preview";
+    const defaultWhisper = "openai";
 
-    // Загрузка текущей конфигурации
+    let selectedModel = defaultModel;
+    let selectedWhisper = defaultWhisper;
+
+    const statusEl = document.getElementById("status");
+    const loadingEl = document.getElementById("loading");
+
+    // Загружаем конфигурацию
     fetch('/.netlify/functions/config.json')
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) throw new Error("Config not found");
+        return res.json();
+      })
       .then(config => {
-        selectedModel = config.gpt_model;
-        selectedWhisper = config.whisper_server;
-        document.querySelector(`input[name="gpt-model"][value="${selectedModel}"]`).checked = true;
-        document.querySelector(`input[name="whisper-server"][value="${selectedWhisper}"]`).checked = true;
+        loadingEl.style.display = "none";
+
+        selectedModel = config.gpt_model || defaultModel;
+        selectedWhisper = config.whisper_server || defaultWhisper;
+
+        // Устанавливаем значения в интерфейсе
+        const modelInput = document.querySelector(`input[name="gpt-model"][value="${selectedModel}"]`);
+        const whisperInput = document.querySelector(`input[name="whisper-server"][value="${selectedWhisper}"]`);
+
+        if (modelInput) modelInput.checked = true;
+        if (whisperInput) whisperInput.checked = true;
+      })
+      .catch(err => {
+        loadingEl.innerText = "⚠️ Не удалось загрузить config.json, используются значения по умолчанию.";
+        console.warn("Ошибка загрузки конфига:", err);
+        // По умолчанию выделяем дефолты
+        document.querySelector(`input[name="gpt-model"][value="${defaultModel}"]`).checked = true;
+        document.querySelector(`input[name="whisper-server"][value="${defaultWhisper}"]`).checked = true;
       });
 
-    // Отслеживание выбора
+    // Слежение за изменениями
     document.querySelectorAll('input[name="gpt-model"]').forEach(input => {
-      input.addEventListener('change', () => {
-        selectedModel = input.value;
-      });
+      input.addEventListener('change', () => selectedModel = input.value);
     });
-
     document.querySelectorAll('input[name="whisper-server"]').forEach(input => {
-      input.addEventListener('change', () => {
-        selectedWhisper = input.value;
-      });
+      input.addEventListener('change', () => selectedWhisper = input.value);
     });
 
-    // Сохранение конфигурации
+    // Сохранение
     document.getElementById("saveBtn").addEventListener("click", () => {
+      statusEl.innerText = "⏳ Сохранение...";
+      statusEl.style.color = "#555";
+
       fetch('/.netlify/functions/update-config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -99,12 +126,14 @@
       })
       .then(res => res.json())
       .then(data => {
-        document.getElementById("status").innerText = "✅ Изменения сохранены";
-        console.log("Обновлено:", data);
+        statusEl.innerText = "✅ Изменения сохранены";
+        statusEl.style.color = "green";
+        console.log("Конфигурация обновлена:", data);
       })
       .catch(err => {
-        document.getElementById("status").innerText = "❌ Ошибка при сохранении";
-        console.error("Ошибка обновления:", err);
+        statusEl.innerText = "❌ Ошибка при сохранении";
+        statusEl.style.color = "red";
+        console.error("Ошибка:", err);
       });
     });
   </script>
