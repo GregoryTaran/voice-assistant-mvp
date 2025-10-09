@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>Админ панель – Настройки модели</title>
+  <title>Админ панель – Настройки проекта</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     body {
@@ -12,51 +12,14 @@
       margin: auto;
       background: #f9f9f9;
     }
-
-    h1 {
-      font-size: 24px;
-      margin-bottom: 10px;
-    }
-
-    .section {
-      margin-bottom: 30px;
-      padding: 10px;
-      background: #fff;
-      border: 1px solid #ddd;
-      border-radius: 8px;
-    }
-
-    label {
-      display: block;
-      margin: 8px 0;
-    }
-
-    button {
-      margin-top: 10px;
-      padding: 8px 16px;
-      background: #0077cc;
-      color: white;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-    }
-
-    button:hover {
-      background: #005fa3;
-    }
-
-    #configWarning {
-      color: red;
-      margin-bottom: 10px;
-    }
-
-    .current-config {
-      background: #eef;
-      padding: 10px;
-      margin-bottom: 15px;
-      font-size: 14px;
-      border-left: 5px solid #88c;
-    }
+    h1 { font-size: 24px; margin-bottom: 10px; }
+    .section { margin-bottom: 30px; padding: 10px; background: #fff; border: 1px solid #ddd; border-radius: 8px; }
+    label { display: block; margin: 8px 0; }
+    input[type="text"], input[type="number"] { width: 100%; padding: 6px; margin-top: 4px; }
+    button { margin-top: 10px; padding: 8px 16px; background: #0077cc; color: white; border: none; border-radius: 5px; cursor: pointer; }
+    button:hover { background: #005fa3; }
+    #configWarning { color: red; margin-bottom: 10px; }
+    .current-config { background: #eef; padding: 10px; margin-bottom: 15px; font-size: 14px; border-left: 5px solid #88c; }
   </style>
 </head>
 <body>
@@ -66,17 +29,30 @@
   <div id="configWarning"></div>
   <div id="currentConfig" class="current-config">Загрузка текущей конфигурации...</div>
 
-  <div class="section">
-    <h3>МОДЕЛЬ GPT</h3>
+  <div class="section" id="section-model">
+    <h3>Модель GPT</h3>
     <label><input type="radio" name="gpt_model" value="gpt-3.5-turbo"> Модель 3.5</label>
     <label><input type="radio" name="gpt_model" value="gpt-4-1106-preview"> Модель 4 Мини</label>
     <label><input type="radio" name="gpt_model" value="gpt-4o"> Модель 4О</label>
   </div>
 
-  <div class="section">
-    <h3>СЕРВЕР ВИСПЕР</h3>
-    <label><input type="radio" name="whisper_server" value="openai"> СЕРВЕР OPENAI</label>
+  <div class="section" id="section-whisper">
+    <h3>Сервер Whisper</h3>
+    <label><input type="radio" name="whisper_server" value="openai"> OpenAI</label>
     <label><input type="radio" name="whisper_server" value="whisper-large-v3-turbo"> whisper-large-v3-turbo</label>
+  </div>
+
+  <div class="section" id="section-language">
+    <h3>Язык интерфейса</h3>
+    <label><input type="radio" name="language" value="ru"> Русский</label>
+    <label><input type="radio" name="language" value="en"> English</label>
+    <label><input type="radio" name="language" value="es"> Español</label>
+    <!-- добавь другие языки по необходимости -->
+  </div>
+
+  <div class="section" id="section-temp">
+    <h3>Температура (0.0 — 1.0)</h3>
+    <label> <input type="number" name="temperature" step="0.01" min="0" max="1"> </label>
   </div>
 
   <button onclick="saveConfig()">💾 Сохранить изменения</button>
@@ -87,15 +63,26 @@
       .then(res => res.json())
       .then(cfg => {
         document.getElementById("currentConfig").innerHTML = `
-          🧠 GPT-Модель: <strong>${cfg.gpt_model}</strong><br>
-          🎙 Whisper-Сервер: <strong>${cfg.whisper_server}</strong>
+          🧠 GPT: <strong>${cfg.gpt_model}</strong><br>
+          🎙 Whisper: <strong>${cfg.whisper_server}</strong><br>
+          🌐 Язык: <strong>${cfg.language}</strong><br>
+          🎚 Температура: <strong>${cfg.temperature}</strong>
         `;
 
-        const modelInput = document.querySelector(\`input[name="gpt_model"][value="\${cfg.gpt_model}"]\`);
-        if (modelInput) modelInput.checked = true;
+        // Установить радио-кнопки / значения
+        const m = document.querySelector(`input[name="gpt_model"][value="${cfg.gpt_model}"]`);
+        if (m) m.checked = true;
 
-        const whisperInput = document.querySelector(\`input[name="whisper_server"][value="\${cfg.whisper_server}"]\`);
-        if (whisperInput) whisperInput.checked = true;
+        const w = document.querySelector(`input[name="whisper_server"][value="${cfg.whisper_server}"]`);
+        if (w) w.checked = true;
+
+        const lang = document.querySelector(`input[name="language"][value="${cfg.language}"]`);
+        if (lang) lang.checked = true;
+
+        const tempInput = document.querySelector(`input[name="temperature"]`);
+        if (tempInput && cfg.temperature !== undefined) {
+          tempInput.value = cfg.temperature;
+        }
       })
       .catch(err => {
         document.getElementById("configWarning").innerText =
@@ -105,17 +92,22 @@
 
     // Сохранение новой конфигурации
     function saveConfig() {
+      // Считываем выбранные/введённые значения
       const selectedModel = document.querySelector('input[name="gpt_model"]:checked')?.value;
       const selectedWhisper = document.querySelector('input[name="whisper_server"]:checked')?.value;
+      const selectedLang = document.querySelector('input[name="language"]:checked')?.value;
+      const tempValue = document.querySelector('input[name="temperature"]')?.value;
 
-      if (!selectedModel || !selectedWhisper) {
-        alert("Пожалуйста, выберите и модель GPT, и сервер Whisper.");
+      if (!selectedModel || !selectedWhisper || !selectedLang || tempValue == null) {
+        alert("Пожалуйста, заполните все поля.");
         return;
       }
 
       const updates = [
         { key: "gpt_model", value: selectedModel },
-        { key: "whisper_server", value: selectedWhisper }
+        { key: "whisper_server", value: selectedWhisper },
+        { key: "language", value: selectedLang },
+        { key: "temperature", value: tempValue }
       ];
 
       Promise.all(updates.map(data =>
