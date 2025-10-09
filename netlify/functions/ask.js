@@ -5,16 +5,24 @@ const { OpenAI } = require("openai");
 const Papa = require("papaparse");
 const fetch = require("node-fetch");
 
+// === Загрузка конфигурации модели GPT из config.json ===
+let config = { gpt_model: "gpt-4-1106-preview" };
+try {
+  const configPath = path.join(__dirname, "config.json");
+  config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+} catch (e) {
+  console.warn("⚠️ Не удалось прочитать config.json. Используется модель по умолчанию.");
+}
+
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-// 🧠 Память последних сообщений (в пределах одной сессии)
+// 🧠 Память последних сообщений
 let conversationMemory = [];
 
-// Функция обновления памяти
 function updateMemory(user, assistant) {
   conversationMemory.push({ role: "user", content: user });
   conversationMemory.push({ role: "assistant", content: assistant });
-  if (conversationMemory.length > 6) conversationMemory = conversationMemory.slice(-6); // оставляем последние 3 пары
+  if (conversationMemory.length > 6) conversationMemory = conversationMemory.slice(-6);
 }
 
 exports.handler = async (event) => {
@@ -24,7 +32,6 @@ exports.handler = async (event) => {
     const isFirst = body.shouldGreet === true || body.shouldGreet === "true";
     let transcript = userText;
 
-    // 🎙️ Распознавание аудио (если есть)
     if (body.audio) {
       const audioBuffer = Buffer.from(body.audio, "base64");
       const tempPath = path.join("/tmp", `audio-${Date.now()}.webm`);
@@ -36,7 +43,6 @@ exports.handler = async (event) => {
       transcript = resp.text;
     }
 
-    // ⚠️ Проверка: если текст пустой
     if (!transcript || transcript.trim().length < 2) {
       return {
         statusCode: 200,
@@ -48,7 +54,6 @@ exports.handler = async (event) => {
       };
     }
 
-    // 📄 Промты и база
     const prompt1URL = "https://docs.google.com/document/d/1AswvzYsQDm8vjqM-q28cCyitdohCc8IkurWjpfiksLY/export?format=txt";
     const prompt2URL = "https://docs.google.com/document/d/1_N8EDELJy4Xk6pANqu4OK50fQjiixQDfR4o_xhuk1no/export?format=txt";
     const csvURL = "https://docs.google.com/spreadsheets/d/1oRxbMU9KR9TdWVEIpg1Q4O9R_pPrHofPmJ1y2_hO09Q/export?format=csv";
@@ -59,9 +64,8 @@ exports.handler = async (event) => {
       fetch(csvURL).then(r => r.text())
     ]);
 
-    // 🧠 Анализ запроса (первый GPT)
     const analysis = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
+      model: config.gpt_model,
       messages: [
         { role: "system", content: prompt1 },
         { role: "user", content: `Что хочет пользователь: "${transcript}"? Верни JSON.` }
@@ -73,18 +77,16 @@ exports.handler = async (event) => {
     const filters = parsedAnalysis.filters || {};
     const clarifyMessage = parsedAnalysis.message || "";
 
-    // 📊 Парсим базу
     const parsed = Papa.parse(csvText, { header: true }).data;
 
-    // 🧩 Разумный снимок базы
     function buildGlobalStats(data) {
       const valid = data.filter(r => r["общая цена (€)"] && r["площадь (м²)"]);
-
       const prices = valid.map(r => parseFloat(r["общая цена (€)"]));
       const areas = valid.map(r => parseFloat(r["площадь (м²)"]));
-      const pricePerM2 = valid.map(r => r["цена за м² (€)"]
-        ? parseFloat(r["цена за м² (€)"])
-        : parseFloat(r["общая цена (€)"]) / parseFloat(r["площадь (м²)"])
+      const pricePerM2 = valid.map(r =>
+        r["цена за м² (€)"]
+          ? parseFloat(r["цена за м² (€)"])
+          : parseFloat(r["общая цена (€)"]) / parseFloat(r["площадь (м²)"])
       ).filter(x => !isNaN(x));
 
       const regions = {};
@@ -117,7 +119,6 @@ exports.handler = async (event) => {
 
     const globalStats = buildGlobalStats(parsed);
 
-    // 🧮 Простая фильтрация по тексту
     const relevant = parsed.filter(row =>
       JSON.stringify(row).toLowerCase().includes(transcript.toLowerCase())
     );
@@ -128,10 +129,9 @@ ${row["Площадь (м²)"]} м² — от ${row["Общая цена (€)"]
 Сдача: ${row["Срок сдачи"] || "—"}`
     ).join("\n\n");
 
-    // 💬 Сообщения GPT (с контекстом памяти)
     const messages = [
       { role: "system", content: prompt2 },
-      ...conversationMemory, // 🧠 контекст последних ответов
+      ...conversationMemory,
       {
         role: "user",
         content: JSON.stringify({
@@ -147,18 +147,14 @@ ${row["Площадь (м²)"]} м² — от ${row["Общая цена (€)"]
       }
     ];
 
-    // 🤖 Генерация ответа
     const final = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
+      model: config.gpt_model,
       messages
     });
 
     const gptAnswer = final.choices[0].message.content || "Нет ответа.";
-
-    // 🧠 Обновляем память
     updateMemory(transcript, gptAnswer);
 
-    // ✅ Ответ клиенту
     return {
       statusCode: 200,
       body: JSON.stringify({
