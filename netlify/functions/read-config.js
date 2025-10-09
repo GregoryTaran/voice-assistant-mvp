@@ -1,19 +1,38 @@
-const fs = require("fs");
-const path = require("path");
+const fetch = require("node-fetch");
 
-exports.handler = async function () {
+exports.handler = async () => {
+  const API_KEY = process.env.AIRTABLE_TOKEN;
+  const BASE_ID = process.env.AIRTABLE_BASE_ID;
+  const TABLE_NAME = "Config"; // Название таблицы в Airtable
+
+  const url = `https://api.airtable.com/v0/${BASE_ID}/${TABLE_NAME}`;
+
   try {
-    const configPath = path.join(__dirname, "config.json");
-    const content = fs.readFileSync(configPath, "utf-8");
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${API_KEY}`,
+      },
+    });
+
+    const data = await response.json();
+
+    const config = {};
+    for (const record of data.records) {
+      const fields = record.fields;
+      if (fields.key && fields.value) {
+        config[fields.key] = fields.value;
+      }
+    }
+
     return {
       statusCode: 200,
       headers: { "Content-Type": "application/json" },
-      body: content,
+      body: JSON.stringify(config),
     };
-  } catch (e) {
+  } catch (error) {
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: "Не удалось прочитать конфигурацию" }),
+      body: JSON.stringify({ error: error.message }),
     };
   }
 };
