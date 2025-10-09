@@ -1,42 +1,31 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
   <title>Админ панель</title>
   <style>
     body {
       font-family: Arial, sans-serif;
-      background: #f9f9f9;
-      padding: 30px;
-      line-height: 1.6;
+      background: #f7f7f7;
+      padding: 20px;
     }
-
     h1 {
       text-align: center;
-      margin-bottom: 40px;
     }
-
     .section {
       background: white;
       padding: 20px;
+      margin-top: 20px;
       border-radius: 12px;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-      margin-bottom: 30px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
-
     .section h2 {
       margin-top: 0;
-      font-size: 1.4em;
-      margin-bottom: 20px;
     }
-
     label {
       display: block;
       margin-bottom: 10px;
-      cursor: pointer;
     }
-
     input[type="radio"] {
       margin-right: 10px;
     }
@@ -47,15 +36,42 @@
 
   <div class="section">
     <h2>МОДЕЛЬ GPT</h2>
-    <label><input type="radio" name="gpt-model" value="gpt-3.5-turbo" /> Модель 3.5</label>
-    <label><input type="radio" name="gpt-model" value="gpt-4-mini" /> Модель 4 мини</label>
-    <label><input type="radio" name="gpt-model" value="gpt-4o" /> Модель 4О</label>
+    <label><input type="radio" name="gpt-model" value="gpt-3.5-turbo"> Модель 3.5</label>
+    <label><input type="radio" name="gpt-model" value="gpt-4-1106-preview"> Модель 4 мини</label>
+    <label><input type="radio" name="gpt-model" value="gpt-4o"> Модель 4О</label>
   </div>
 
   <div class="section">
     <h2>СЕРВЕР ВИСПЕР</h2>
-    <label><input type="radio" name="whisper-server" value="openai" /> СЕРВЕР ОПЕН АИ</label>
-    <label><input type="radio" name="whisper-server" value="whisper-large-v3-turbo" /> СЕРВЕР whisper-large-v3-turbo</label>
+    <label><input type="radio" name="whisper-server" value="openai"> СЕРВЕР ОПЕН АИ</label>
+    <label><input type="radio" name="whisper-server" value="whisper-large-v3-turbo"> СЕРВЕР whisper-large-v3-turbo</label>
   </div>
+
+  <script>
+    // Загрузка текущего конфига
+    fetch('/.netlify/functions/config.json')
+      .then(res => res.json())
+      .then(config => {
+        document.querySelector(`input[name="gpt-model"][value="${config.gpt_model}"]`).checked = true;
+        document.querySelector(`input[name="whisper-server"][value="${config.whisper_server}"]`).checked = true;
+      });
+
+    // Обновление конфигурации на сервере
+    document.querySelectorAll('input[name="gpt-model"], input[name="whisper-server"]').forEach(input => {
+      input.addEventListener('change', () => {
+        const gptModel = document.querySelector('input[name="gpt-model"]:checked').value;
+        const whisperServer = document.querySelector('input[name="whisper-server"]:checked').value;
+
+        fetch('/.netlify/functions/update-config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ gpt_model: gptModel, whisper_server: whisperServer })
+        })
+        .then(res => res.json())
+        .then(data => console.log('✅ Обновлено:', data))
+        .catch(err => console.error('Ошибка обновления:', err));
+      });
+    });
+  </script>
 </body>
 </html>
