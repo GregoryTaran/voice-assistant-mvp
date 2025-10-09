@@ -6,21 +6,19 @@
   <style>
     body {
       font-family: Arial, sans-serif;
-      background: #f7f7f7;
+      background: #f4f4f4;
+      padding: 30px;
+    }
+    .section {
+      background: #fff;
       padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
     }
     h1 {
       text-align: center;
-    }
-    .section {
-      background: white;
-      padding: 20px;
-      margin-top: 20px;
-      border-radius: 12px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-    .section h2 {
-      margin-top: 0;
+      margin-bottom: 30px;
     }
     label {
       display: block;
@@ -29,9 +27,21 @@
     input[type="radio"] {
       margin-right: 10px;
     }
+    #saveBtn {
+      margin-top: 20px;
+      padding: 12px 24px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    #status {
+      margin-top: 10px;
+      font-weight: bold;
+      color: green;
+    }
   </style>
 </head>
 <body>
+
   <h1>Админ панель</h1>
 
   <div class="section">
@@ -47,31 +57,57 @@
     <label><input type="radio" name="whisper-server" value="whisper-large-v3-turbo"> СЕРВЕР whisper-large-v3-turbo</label>
   </div>
 
+  <button id="saveBtn">💾 Сохранить изменения</button>
+  <div id="status"></div>
+
   <script>
-    // Загрузка текущего конфига
+    let selectedModel = null;
+    let selectedWhisper = null;
+
+    // Загрузка текущей конфигурации
     fetch('/.netlify/functions/config.json')
       .then(res => res.json())
       .then(config => {
-        document.querySelector(`input[name="gpt-model"][value="${config.gpt_model}"]`).checked = true;
-        document.querySelector(`input[name="whisper-server"][value="${config.whisper_server}"]`).checked = true;
+        selectedModel = config.gpt_model;
+        selectedWhisper = config.whisper_server;
+        document.querySelector(`input[name="gpt-model"][value="${selectedModel}"]`).checked = true;
+        document.querySelector(`input[name="whisper-server"][value="${selectedWhisper}"]`).checked = true;
       });
 
-    // Обновление конфигурации на сервере
-    document.querySelectorAll('input[name="gpt-model"], input[name="whisper-server"]').forEach(input => {
+    // Отслеживание выбора
+    document.querySelectorAll('input[name="gpt-model"]').forEach(input => {
       input.addEventListener('change', () => {
-        const gptModel = document.querySelector('input[name="gpt-model"]:checked').value;
-        const whisperServer = document.querySelector('input[name="whisper-server"]:checked').value;
+        selectedModel = input.value;
+      });
+    });
 
-        fetch('/.netlify/functions/update-config', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ gpt_model: gptModel, whisper_server: whisperServer })
+    document.querySelectorAll('input[name="whisper-server"]').forEach(input => {
+      input.addEventListener('change', () => {
+        selectedWhisper = input.value;
+      });
+    });
+
+    // Сохранение конфигурации
+    document.getElementById("saveBtn").addEventListener("click", () => {
+      fetch('/.netlify/functions/update-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          gpt_model: selectedModel,
+          whisper_server: selectedWhisper
         })
-        .then(res => res.json())
-        .then(data => console.log('✅ Обновлено:', data))
-        .catch(err => console.error('Ошибка обновления:', err));
+      })
+      .then(res => res.json())
+      .then(data => {
+        document.getElementById("status").innerText = "✅ Изменения сохранены";
+        console.log("Обновлено:", data);
+      })
+      .catch(err => {
+        document.getElementById("status").innerText = "❌ Ошибка при сохранении";
+        console.error("Ошибка обновления:", err);
       });
     });
   </script>
+
 </body>
 </html>
