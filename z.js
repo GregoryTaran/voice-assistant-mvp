@@ -40,43 +40,30 @@ async function loadConfig() {
   }
 }
 
-async function loadNotes() {
-  const listEl = document.getElementById("notesContainer");
-  listEl.innerHTML = "<div class='empty'>Загрузка…</div>";
-  try {
-    const data = await fetchJSON("/.netlify/functions/notes?action=list");
-    const tz = (window.SMART_NOTES && window.SMART_NOTES.timezone) || "Europe/Dublin";
-    let notes = data?.notes || [];
+function renderNotes(listEl, notes, tz, withActions = true) {
+  if (!notes.length) {
+    listEl.innerHTML = "<div class='empty'>Нет записей</div>";
+    return;
+  }
+  listEl.innerHTML = "";
+  for (const n of notes) {
+    const row = document.createElement("div");
+    row.className = "row";
 
-    // Клиентская сортировка: сначала с датой (по убыванию), затем без даты
-    notes.sort((a, b) => {
-      const ta = a.reminder_time ? Date.parse(a.reminder_time) : -Infinity;
-      const tb = b.reminder_time ? Date.parse(b.reminder_time) : -Infinity;
-      return tb - ta;
-    });
+    const left = document.createElement("div");
+    const title = document.createElement("div");
+    title.className = "note-title";
+    title.textContent = n.text || "(без текста)";
 
-    if (!notes.length) {
-      listEl.innerHTML = "<div class='empty'>Пока нет заметок</div>";
-      return;
-    }
+    const meta = document.createElement("div");
+    meta.className = "note-meta";
+    meta.textContent = `Время напоминания: ${fmtLocal(n.reminder_time, tz)}  •  Способ: ${n.method || "PUSH"}`;
 
-    listEl.innerHTML = "";
-    for (const n of notes) {
-      const row = document.createElement("div");
-      row.className = "row";
-      const left = document.createElement("div");
+    left.appendChild(title);
+    left.appendChild(meta);
+    row.appendChild(left);
 
-      const title = document.createElement("div");
-      title.className = "note-title";
-      title.textContent = n.text || "(без текста)";
-
-      const meta = document.createElement("div");
-      meta.className = "note-meta";
-      meta.textContent = `Время напоминания: ${fmtLocal(n.reminder_time, tz)}  •  Способ: ${n.method || "PUSH"}`;
-
-      left.appendChild(title);
-      left.appendChild(meta);
-
+    if (withActions) {
       const actions = document.createElement("div");
       actions.className = "actions";
       const editBtn = document.createElement("button");
@@ -95,23 +82,57 @@ async function loadNotes() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ id: n.id })
           });
-          await loadNotes();
+          await loadNotes();       // перезагрузим оба списка
+          await loadArchive();
         } catch (e) {
           alert("Ошибка архивации: " + e.message);
         } finally {
           archBtn.disabled = false;
         }
       };
-
       actions.appendChild(editBtn);
       actions.appendChild(archBtn);
-
-      row.appendChild(left);
       row.appendChild(actions);
-      listEl.appendChild(row);
     }
+
+    listEl.appendChild(row);
+  }
+}
+
+async function loadNotes() {
+  const listEl = document.getElementById("notesContainer");
+  listEl.innerHTML = "<div class='empty'>Загрузка…</div>";
+  try {
+    const data = await fetchJSON("/.netlify/functions/notes?action=list"); // активные
+    const tz = (window.SMART_NOTES && window.SMART_NOTES.timezone) || "Europe/Dublin";
+    let notes = data?.notes || [];
+    notes.sort((a, b) => {
+      const ta = a.reminder_time ? Date.parse(a.reminder_time) : -Infinity;
+      const tb = b.reminder_time ? Date.parse(b.reminder_time) : -Infinity;
+      return tb - ta;
+    });
+    renderNotes(listEl, notes, tz, true);
   } catch (e) {
     listEl.innerHTML = "<div class='empty'>Ошибка загрузки заметок</div>";
+    console.error(e);
+  }
+}
+
+async function loadArchive() {
+  const listEl = document.getElementById("archiveContainer");
+  listEl.innerHTML = "<div class='empty'>Загрузка…</div>";
+  try {
+    const data = await fetchJSON("/.netlify/functions/notes?action=list&archived=1"); // архивные
+    const tz = (window.SMART_NOTES && window.SMART_NOTES.timezone) || "Europe/Dublin";
+    let notes = data?.notes || [];
+    notes.sort((a, b) => {
+      const ta = a.reminder_time ? Date.parse(a.reminder_time) : -Infinity;
+      const tb = b.reminder_time ? Date.parse(b.reminder_time) : -Infinity;
+      return tb - ta;
+    });
+    renderNotes(listEl, notes, tz, false); // без кнопок
+  } catch (e) {
+    listEl.innerHTML = "<div class='empty'>Ошибка загрузки архива</div>";
     console.error(e);
   }
 }
@@ -167,13 +188,14 @@ function setupRecorder() {
         gdocId: (window.SMART_NOTES && window.SMART_NOTES.gdocId) || "",
         timezone: (window.SMART_NOTES && window.SMART_NOTES.timezone) || "Europe/Dublin"
       };
-      const res = await fetchJSON("/.netlify/functions/notes?action=create", {
+      await fetchJSON("/.netlify/functions/notes?action=create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
       statusEl.textContent = "Готово ✅";
       await loadNotes();
+      await loadArchive();
       setTimeout(() => (statusEl.textContent = "Ожидание…"), 1200);
     } catch (e) {
       console.error(e);
@@ -182,20 +204,13 @@ function setupRecorder() {
     }
   }
 
-  // Мышь и тач
   btn.addEventListener("mousedown", start);
   btn.addEventListener("mouseup", stop);
   btn.addEventListener("mouseleave", () => {
     if (btn.classList.contains("recording")) stop();
   });
-  btn.addEventListener("touchstart", (e) => {
-    e.preventDefault();
-    start();
-  }, { passive: false });
-  btn.addEventListener("touchend", (e) => {
-    e.preventDefault();
-    stop();
-  }, { passive: false });
+  btn.addEventListener("touchstart", (e) => { e.preventDefault(); start(); }, { passive: false });
+  btn.addEventListener("touchend", (e) => { e.preventDefault(); stop(); }, { passive: false });
 }
 
 function blobToBase64(blob) {
@@ -211,4 +226,5 @@ document.addEventListener("DOMContentLoaded", () => {
   setupRecorder();
   loadConfig();
   loadNotes();
+  loadArchive();
 });
