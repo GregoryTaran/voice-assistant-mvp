@@ -2,26 +2,21 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Умные заметки — z.html</title>
 
-  <link rel="stylesheet" href="/z.css?v=2" />
-
-  <style>
-  body{margin:0;background:#f3f4f6;font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;color:#111}
-  .container{max-width:900px;margin:0 auto;padding:16px}
-  .card{background:#fff;border-radius:8px;box-shadow:0 1px 2px rgba(0,0,0,.06),0 1px 3px rgba(0,0,0,.1);padding:16px 20px;margin-bottom:16px}
-  .primary{border:0;background:#111827;color:#fff;padding:14px 18px;border-radius:8px;font-weight:700}
-</style>
-
-
+  <!-- Абсолютный путь + кэш-бастер -->
+  <link rel="stylesheet" href="/z.css?v=3" />
 </head>
 <body>
   <div class="container">
     <!-- БЛОК 1 -->
     <header class="card header">
-      <div class="logo">ЛОГО</div>
-      <div class="title">УМНЫЕ ЗАМЕТКИ</div>
+      <div class="logo">
+        <!-- Текстовый бейдж или <img src="/logo.svg" alt="Логотип"> -->
+        ЛОГО
+      </div>
+      <h1 class="title">УМНЫЕ ЗАМЕТКИ</h1>
     </header>
 
     <!-- БЛОК 2 -->
@@ -34,7 +29,7 @@
       </p>
 
       <div class="record-wrap">
-        <button id="holdRecordBtn" class="primary">
+        <button id="holdRecordBtn" class="primary" type="button">
           СОЗДАТЬ НОВУЮ ЗАМЕТКУ
         </button>
         <div id="recStatus" class="status">Ожидание…</div>
@@ -50,7 +45,7 @@
     <!-- БЛОК 4: Конфигурация -->
     <section class="card config">
       <h2>Конфигурация</h2>
-      <div id="configContent">
+      <div id="configContent" class="config-grid">
         <div>🧠 GPT-Модель: <span id="cfgModel">—</span></div>
         <div>🎙 Whisper-Сервер: <span id="cfgWhisper">—</span></div>
       </div>
@@ -58,11 +53,12 @@
   </div>
 
   <script>
+    // Передаем ID Google Doc и таймзону (браузерную) в JS
     window.SMART_NOTES = {
       gdocId: "1BbFm6qZl75g4MVB_Q6c5nVjUc0VGaPBbJ83MXoMfN6M",
-      timezone: "Europe/Dublin"
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
     };
   </script>
-  <script src="./z.js" defer></script>
+  <script src="/z.js" defer></script>
 </body>
 </html>
