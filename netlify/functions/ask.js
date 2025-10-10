@@ -8,7 +8,7 @@ const fetch = require("node-fetch");
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-// === 📡 Функция: получить актуальный конфиг из Airtable ===
+/* === 📡 Функция: получить актуальные настройки из Airtable === */
 async function getCurrentConfig() {
   try {
     const API_KEY = process.env.AIRTABLE_TOKEN;
@@ -18,8 +18,8 @@ async function getCurrentConfig() {
     const res = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${TABLE_NAME}`, {
       headers: { Authorization: `Bearer ${API_KEY}` },
     });
-
     const data = await res.json();
+
     if (!data.records) throw new Error("Нет записей в конфиге");
 
     const cfg = {};
@@ -28,7 +28,6 @@ async function getCurrentConfig() {
       const v = r.fields.value;
       if (k) cfg[k] = v;
     });
-
     return cfg;
   } catch (e) {
     console.error("⚠️ Ошибка загрузки конфигурации из Airtable:", e);
@@ -36,7 +35,7 @@ async function getCurrentConfig() {
   }
 }
 
-// === 🧠 Память последних сообщений ===
+/* === 🧠 Память последних сообщений === */
 let conversationMemory = [];
 
 function updateMemory(user, assistant) {
@@ -45,17 +44,18 @@ function updateMemory(user, assistant) {
   if (conversationMemory.length > 6) conversationMemory = conversationMemory.slice(-6);
 }
 
+/* === 🚀 Основная функция === */
 exports.handler = async (event) => {
   try {
-    // === 1️⃣ Получаем текущие настройки из Airtable ===
+    /* === 1️⃣ Загружаем текущие настройки === */
     const cfg = await getCurrentConfig();
     const gptModel = cfg.gpt_model || "gpt-4-1106-preview";
     const gptTemperature = parseFloat(cfg.temperature) || 0.7;
     const gptLanguage = cfg.language || "ru";
 
-    console.log("🧩 Активная модель:", gptModel, "| Температура:", gptTemperature, "| Язык:", gptLanguage);
+    console.log("🧩 Используем:", gptModel, "| T:", gptTemperature, "| Lang:", gptLanguage);
 
-    // === 2️⃣ Распознаём вход пользователя ===
+    /* === 2️⃣ Получаем вход пользователя === */
     const body = JSON.parse(event.body || "{}");
     const userText = body.text || "";
     const isFirst = body.shouldGreet === true || body.shouldGreet === "true";
@@ -84,7 +84,7 @@ exports.handler = async (event) => {
       };
     }
 
-    // === 3️⃣ Загружаем промпты и базу ===
+    /* === 3️⃣ Загружаем промпты и CSV === */
     const prompt1URL =
       "https://docs.google.com/document/d/1AswvzYsQDm8vjqM-q28cCyitdohCc8IkurWjpfiksLY/export?format=txt";
     const prompt2URL =
@@ -98,7 +98,7 @@ exports.handler = async (event) => {
       fetch(csvURL).then((r) => r.text()),
     ]);
 
-    // === 4️⃣ Анализируем запрос пользователя ===
+    /* === 4️⃣ Анализируем запрос === */
     const analysis = await openai.chat.completions.create({
       model: gptModel,
       temperature: gptTemperature,
@@ -108,12 +108,30 @@ exports.handler = async (event) => {
       ],
     });
 
-    const parsedAnalysis = JSON.parse(analysis.choices[0].message.content);
+    let parsedAnalysis = {};
+    const rawAnalysis = analysis.choices?.[0]?.message?.content || "";
+
+    try {
+      parsedAnalysis = JSON.parse(rawAnalysis);
+    } catch (err) {
+      console.warn("⚠️ Ошибка JSON:", rawAnalysis);
+      const match = rawAnalysis.match(/\{[\s\S]*\}/);
+      if (match) {
+        try {
+          parsedAnalysis = JSON.parse(match[0]);
+        } catch (err2) {
+          parsedAnalysis = { intent: "clarify", message: "Ошибка парсинга JSON." };
+        }
+      } else {
+        parsedAnalysis = { intent: "clarify", message: "Пустой или нераспознанный JSON." };
+      }
+    }
+
     const intent = parsedAnalysis.intent || "clarify";
     const filters = parsedAnalysis.filters || {};
     const clarifyMessage = parsedAnalysis.message || "";
 
-    // === 5️⃣ Парсим базу недвижимости ===
+    /* === 5️⃣ Парсим базу недвижимости === */
     const parsed = Papa.parse(csvText, { header: true }).data;
 
     function buildGlobalStats(data) {
@@ -130,7 +148,6 @@ exports.handler = async (event) => {
 
       const regions = {};
       const types = {};
-
       valid.forEach((r) => {
         const reg = r["область"];
         const typ = r["Тип объекта"];
@@ -173,7 +190,7 @@ ${row["Площадь (м²)"]} м² — от ${row["Общая цена (€)"]
       )
       .join("\n\n");
 
-    // === 6️⃣ Генерируем финальный ответ GPT ===
+    /* === 6️⃣ Финальный ответ GPT === */
     const messages = [
       { role: "system", content: prompt2 },
       ...conversationMemory,
@@ -199,7 +216,7 @@ ${row["Площадь (м²)"]} м² — от ${row["Общая цена (€)"]
       messages,
     });
 
-    const gptAnswer = final.choices[0].message.content || "Нет ответа.";
+    const gptAnswer = final.choices?.[0]?.message?.content || "Нет ответа.";
     updateMemory(transcript, gptAnswer);
 
     return {
