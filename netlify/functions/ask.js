@@ -8,36 +8,58 @@ const fetch = require("node-fetch");
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-/* === 📡 Функция: получить актуальные настройки из Airtable === */
+/* === 📡 Получить актуальные настройки из Airtable === */
 async function getCurrentConfig() {
   try {
     const API_KEY = process.env.AIRTABLE_TOKEN;
     const BASE_ID = process.env.AIRTABLE_BASE_ID;
-    const TABLE_NAME = "Config";
+    const TABLE_CONFIG = "Config";
+    const TABLE_SERVERS = "WhisperServers";
 
-    const res = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${TABLE_NAME}`, {
-      headers: { Authorization: `Bearer ${API_KEY}` },
-    });
-    const data = await res.json();
+    const headers = { Authorization: `Bearer ${API_KEY}` };
 
-    if (!data.records) throw new Error("Нет записей в конфиге");
+    // 1️⃣ Читаем таблицу Config
+    const resCfg = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${TABLE_CONFIG}`, { headers });
+    const dataCfg = await resCfg.json();
+    if (!dataCfg.records) throw new Error("Нет записей в Config");
 
     const cfg = {};
-    data.records.forEach((r) => {
+    dataCfg.records.forEach((r) => {
       const k = r.fields.key;
       const v = r.fields.value;
       if (k) cfg[k] = v;
     });
+
+    // 2️⃣ Если указан whisper_server — ищем его параметры в WhisperServers
+    if (cfg.whisper_server) {
+      const formula = encodeURIComponent(`{id} = '${cfg.whisper_server}'`);
+      const resSrv = await fetch(
+        `https://api.airtable.com/v0/${BASE_ID}/${TABLE_SERVERS}?filterByFormula=${formula}`,
+        { headers }
+      );
+      const dataSrv = await resSrv.json();
+      if (dataSrv.records?.[0]) {
+        const s = dataSrv.records[0].fields;
+        cfg.whisper_server_url = s.url || "";
+        cfg.whisper_server_name = s.name || "";
+        cfg.whisper_description = s.description || "";
+      }
+    }
+
     return cfg;
   } catch (e) {
-    console.error("⚠️ Ошибка загрузки конфигурации из Airtable:", e);
-    return { gpt_model: "gpt-4-1106-preview", temperature: 0.7, language: "ru" }; // дефолт
+    console.error("⚠️ Ошибка загрузки конфигурации:", e);
+    return {
+      gpt_model: "gpt-4-1106-preview",
+      temperature: 0.7,
+      language: "ru",
+      whisper_server: "openai",
+    };
   }
 }
 
 /* === 🧠 Память последних сообщений === */
 let conversationMemory = [];
-
 function updateMemory(user, assistant) {
   conversationMemory.push({ role: "user", content: user });
   conversationMemory.push({ role: "assistant", content: assistant });
@@ -47,30 +69,57 @@ function updateMemory(user, assistant) {
 /* === 🚀 Основная функция === */
 exports.handler = async (event) => {
   try {
-    /* === 1️⃣ Загружаем текущие настройки === */
+    // 1️⃣ Конфигурация проекта
     const cfg = await getCurrentConfig();
     const gptModel = cfg.gpt_model || "gpt-4-1106-preview";
     const gptTemperature = parseFloat(cfg.temperature) || 0.7;
     const gptLanguage = cfg.language || "ru";
+    const whisperServer = cfg.whisper_server || "openai";
 
-    console.log("🧩 Используем:", gptModel, "| T:", gptTemperature, "| Lang:", gptLanguage);
+    console.log("🧩 Используем:", gptModel, "| Whisper:", whisperServer, "| Lang:", gptLanguage);
 
-    /* === 2️⃣ Получаем вход пользователя === */
+    // 2️⃣ Получаем вход пользователя
     const body = JSON.parse(event.body || "{}");
     const userText = body.text || "";
     const isFirst = body.shouldGreet === true || body.shouldGreet === "true";
     let transcript = userText;
 
+    /* === 🎙 Обработка голосового ввода === */
     if (body.audio) {
       const audioBuffer = Buffer.from(body.audio, "base64");
       const tempPath = path.join("/tmp", `audio-${Date.now()}.webm`);
       fs.writeFileSync(tempPath, audioBuffer);
 
-      const resp = await openai.audio.transcriptions.create({
-        file: fs.createReadStream(tempPath),
-        model: "whisper-1",
-      });
-      transcript = resp.text;
+      // Ветвление: OpenAI Whisper или HuggingFace Fast-Whisper
+      if (whisperServer === "whisper-large-v3-turbo" && cfg.whisper_server_url) {
+        console.log("🎙 Используется внешний Whisper:", cfg.whisper_server_name);
+        console.log("🌐 URL:", cfg.whisper_server_url);
+
+        const response = await fetch(cfg.whisper_server_url, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${process.env.HF_TOKEN}`,
+            "Content-Type": "audio/webm",
+          },
+          body: fs.createReadStream(tempPath),
+        });
+
+        if (!response.ok) {
+          const errText = await response.text();
+          console.error("Ошибка Whisper HF:", errText);
+          throw new Error("Ошибка внешнего Whisper сервера");
+        }
+
+        const result = await response.json();
+        transcript = result.text || "";
+      } else {
+        console.log("🎙 Используется OpenAI Whisper");
+        const resp = await openai.audio.transcriptions.create({
+          file: fs.createReadStream(tempPath),
+          model: "whisper-1",
+        });
+        transcript = resp.text;
+      }
     }
 
     if (!transcript || transcript.trim().length < 2) {
@@ -84,21 +133,14 @@ exports.handler = async (event) => {
       };
     }
 
-    /* === 3️⃣ Загружаем промпты и CSV === */
-    const prompt1URL =
-      "https://docs.google.com/document/d/1AswvzYsQDm8vjqM-q28cCyitdohCc8IkurWjpfiksLY/export?format=txt";
-    const prompt2URL =
-      "https://docs.google.com/document/d/1_N8EDELJy4Xk6pANqu4OK50fQjiixQDfR4o_xhuk1no/export?format=txt";
-    const csvURL =
-      "https://docs.google.com/spreadsheets/d/1oRxbMU9KR9TdWVEIpg1Q4O9R_pPrHofPmJ1y2_hO09Q/export?format=csv";
-
+    // 3️⃣ Загружаем промпты и CSV
     const [prompt1, prompt2, csvText] = await Promise.all([
-      fetch(prompt1URL).then((r) => r.text()),
-      fetch(prompt2URL).then((r) => r.text()),
-      fetch(csvURL).then((r) => r.text()),
+      fetch("https://docs.google.com/document/d/1AswvzYsQDm8vjqM-q28cCyitdohCc8IkurWjpfiksLY/export?format=txt").then((r) => r.text()),
+      fetch("https://docs.google.com/document/d/1_N8EDELJy4Xk6pANqu4OK50fQjiixQDfR4o_xhuk1no/export?format=txt").then((r) => r.text()),
+      fetch("https://docs.google.com/spreadsheets/d/1oRxbMU9KR9TdWVEIpg1Q4O9R_pPrHofPmJ1y2_hO09Q/export?format=csv").then((r) => r.text()),
     ]);
 
-    /* === 4️⃣ Анализируем запрос === */
+    // 4️⃣ Анализируем запрос
     const analysis = await openai.chat.completions.create({
       model: gptModel,
       temperature: gptTemperature,
@@ -110,72 +152,28 @@ exports.handler = async (event) => {
 
     let parsedAnalysis = {};
     const rawAnalysis = analysis.choices?.[0]?.message?.content || "";
-
     try {
       parsedAnalysis = JSON.parse(rawAnalysis);
-    } catch (err) {
+    } catch {
       console.warn("⚠️ Ошибка JSON:", rawAnalysis);
-      const match = rawAnalysis.match(/\{[\s\S]*\}/);
-      if (match) {
-        try {
-          parsedAnalysis = JSON.parse(match[0]);
-        } catch (err2) {
-          parsedAnalysis = { intent: "clarify", message: "Ошибка парсинга JSON." };
-        }
-      } else {
-        parsedAnalysis = { intent: "clarify", message: "Пустой или нераспознанный JSON." };
-      }
+      parsedAnalysis = { intent: "clarify", message: "Ошибка парсинга JSON." };
     }
 
     const intent = parsedAnalysis.intent || "clarify";
     const filters = parsedAnalysis.filters || {};
     const clarifyMessage = parsedAnalysis.message || "";
 
-    /* === 5️⃣ Парсим базу недвижимости === */
+    // 5️⃣ Парсим базу недвижимости
     const parsed = Papa.parse(csvText, { header: true }).data;
-
-    function buildGlobalStats(data) {
-      const valid = data.filter((r) => r["общая цена (€)"] && r["площадь (м²)"]);
-      const prices = valid.map((r) => parseFloat(r["общая цена (€)"]));
-      const areas = valid.map((r) => parseFloat(r["площадь (м²)"]));
-      const pricePerM2 = valid
-        .map((r) =>
-          r["цена за м² (€)"]
-            ? parseFloat(r["цена за м² (€)"])
-            : parseFloat(r["общая цена (€)"]) / parseFloat(r["площадь (м²)"])
-        )
-        .filter((x) => !isNaN(x));
-
-      const regions = {};
-      const types = {};
-      valid.forEach((r) => {
-        const reg = r["область"];
-        const typ = r["Тип объекта"];
-        if (reg) regions[reg] = (regions[reg] || 0) + 1;
-        if (typ) types[typ] = (types[typ] || 0) + 1;
-      });
-
-      const avg = (arr) => Math.round(arr.reduce((a, b) => a + b, 0) / arr.length);
-
-      return {
-        total_properties: valid.length,
-        min_price: Math.min(...prices),
-        max_price: Math.max(...prices),
-        avg_price: avg(prices),
-        min_area: Math.min(...areas),
-        max_area: Math.max(...areas),
-        avg_area: avg(areas),
-        avg_price_per_m2: avg(pricePerM2),
-        regions,
-        types,
-        most_common_type:
-          Object.entries(types).sort((a, b) => b[1] - a[1])[0]?.[0] || "Апартаменты",
-        most_popular_region:
-          Object.entries(regions).sort((a, b) => b[1] - a[1])[0]?.[0] || "Lazio",
-      };
-    }
-
-    const globalStats = buildGlobalStats(parsed);
+    const valid = parsed.filter((r) => r["общая цена (€)"] && r["площадь (м²)"]);
+    const avg = (arr) => Math.round(arr.reduce((a, b) => a + b, 0) / arr.length);
+    const prices = valid.map((r) => parseFloat(r["общая цена (€)"]));
+    const areas = valid.map((r) => parseFloat(r["площадь (м²)"]));
+    const globalStats = {
+      total_properties: valid.length,
+      avg_price: avg(prices),
+      avg_area: avg(areas),
+    };
 
     const relevant = parsed.filter((row) =>
       JSON.stringify(row).toLowerCase().includes(transcript.toLowerCase())
@@ -190,7 +188,7 @@ ${row["Площадь (м²)"]} м² — от ${row["Общая цена (€)"]
       )
       .join("\n\n");
 
-    /* === 6️⃣ Финальный ответ GPT === */
+    // 6️⃣ Финальный ответ GPT
     const messages = [
       { role: "system", content: prompt2 },
       ...conversationMemory,
@@ -226,6 +224,8 @@ ${row["Площадь (м²)"]} м² — от ${row["Общая цена (€)"]
         transcript,
         matches: relevant.length,
         model_used: gptModel,
+        whisper_used: whisperServer,
+        whisper_url: cfg.whisper_server_url || "openai",
       }),
     };
   } catch (err) {
