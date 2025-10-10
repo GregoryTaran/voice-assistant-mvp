@@ -90,28 +90,37 @@ exports.handler = async (event) => {
       const tempPath = path.join("/tmp", `audio-${Date.now()}.webm`);
       fs.writeFileSync(tempPath, audioBuffer);
 
-      // Ветвление: OpenAI Whisper или HuggingFace Fast-Whisper
+      // Попробуем сначала внешний Whisper
       if (whisperServer === "whisper-large-v3-turbo" && cfg.whisper_server_url) {
-        console.log("🎙 Используется внешний Whisper:", cfg.whisper_server_name);
-        console.log("🌐 URL:", cfg.whisper_server_url);
+        try {
+          console.log("🎙 Используется внешний Whisper:", cfg.whisper_server_name);
+          console.log("🌐 URL:", cfg.whisper_server_url);
 
-        const response = await fetch(cfg.whisper_server_url, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${process.env.HF_TOKEN}`,
-            "Content-Type": "audio/webm",
-          },
-          body: fs.createReadStream(tempPath),
-        });
+          const response = await fetch(cfg.whisper_server_url, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${process.env.HF_TOKEN}`,
+              "Content-Type": "audio/webm",
+            },
+            body: fs.createReadStream(tempPath),
+          });
 
-        if (!response.ok) {
-          const errText = await response.text();
-          console.error("Ошибка Whisper HF:", errText);
-          throw new Error("Ошибка внешнего Whisper сервера");
+          if (!response.ok) {
+            const errText = await response.text();
+            console.error("❌ Ошибка Whisper HF:", errText);
+            throw new Error("HF Whisper failed");
+          }
+
+          const result = await response.json();
+          transcript = result.text || "";
+        } catch (err) {
+          console.warn("⚠️ HF Whisper недоступен — fallback → OpenAI Whisper");
+          const resp = await openai.audio.transcriptions.create({
+            file: fs.createReadStream(tempPath),
+            model: "whisper-1",
+          });
+          transcript = resp.text;
         }
-
-        const result = await response.json();
-        transcript = result.text || "";
       } else {
         console.log("🎙 Используется OpenAI Whisper");
         const resp = await openai.audio.transcriptions.create({
@@ -129,113 +138,3 @@ exports.handler = async (event) => {
           text: "Я не расслышал. Попробуйте ещё раз.",
           transcript: transcript || "…",
           matches: 0,
-        }),
-      };
-    }
-
-    // 3️⃣ Загружаем промпты и CSV
-    const [prompt1, prompt2, csvText] = await Promise.all([
-      fetch("https://docs.google.com/document/d/1AswvzYsQDm8vjqM-q28cCyitdohCc8IkurWjpfiksLY/export?format=txt").then((r) => r.text()),
-      fetch("https://docs.google.com/document/d/1_N8EDELJy4Xk6pANqu4OK50fQjiixQDfR4o_xhuk1no/export?format=txt").then((r) => r.text()),
-      fetch("https://docs.google.com/spreadsheets/d/1oRxbMU9KR9TdWVEIpg1Q4O9R_pPrHofPmJ1y2_hO09Q/export?format=csv").then((r) => r.text()),
-    ]);
-
-    // 4️⃣ Анализируем запрос
-    const analysis = await openai.chat.completions.create({
-      model: gptModel,
-      temperature: gptTemperature,
-      messages: [
-        { role: "system", content: prompt1 },
-        { role: "user", content: `Что хочет пользователь: "${transcript}"? Верни JSON.` },
-      ],
-    });
-
-    let parsedAnalysis = {};
-    const rawAnalysis = analysis.choices?.[0]?.message?.content || "";
-    try {
-      parsedAnalysis = JSON.parse(rawAnalysis);
-    } catch {
-      console.warn("⚠️ Ошибка JSON:", rawAnalysis);
-      parsedAnalysis = { intent: "clarify", message: "Ошибка парсинга JSON." };
-    }
-
-    const intent = parsedAnalysis.intent || "clarify";
-    const filters = parsedAnalysis.filters || {};
-    const clarifyMessage = parsedAnalysis.message || "";
-
-    // 5️⃣ Парсим базу недвижимости
-    const parsed = Papa.parse(csvText, { header: true }).data;
-    const valid = parsed.filter((r) => r["общая цена (€)"] && r["площадь (м²)"]);
-    const avg = (arr) => Math.round(arr.reduce((a, b) => a + b, 0) / arr.length);
-    const prices = valid.map((r) => parseFloat(r["общая цена (€)"]));
-    const areas = valid.map((r) => parseFloat(r["площадь (м²)"]));
-    const globalStats = {
-      total_properties: valid.length,
-      avg_price: avg(prices),
-      avg_area: avg(areas),
-    };
-
-    const relevant = parsed.filter((row) =>
-      JSON.stringify(row).toLowerCase().includes(transcript.toLowerCase())
-    );
-
-    const sampleData = relevant
-      .slice(0, 3)
-      .map(
-        (row) => `${row["Город"]} — ${row["Адрес"] || "Адрес не указан"}
-${row["Площадь (м²)"]} м² — от ${row["Общая цена (€)"]} €
-Сдача: ${row["Срок сдачи"] || "—"}`
-      )
-      .join("\n\n");
-
-    // 6️⃣ Финальный ответ GPT
-    const messages = [
-      { role: "system", content: prompt2 },
-      ...conversationMemory,
-      {
-        role: "user",
-        content: JSON.stringify({
-          transcript,
-          intent,
-          filters,
-          message: clarifyMessage,
-          results: sampleData,
-          total: relevant.length,
-          isFirst,
-          globalStats,
-          language: gptLanguage,
-        }),
-      },
-    ];
-
-    const final = await openai.chat.completions.create({
-      model: gptModel,
-      temperature: gptTemperature,
-      messages,
-    });
-
-    const gptAnswer = final.choices?.[0]?.message?.content || "Нет ответа.";
-    updateMemory(transcript, gptAnswer);
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify({
-        text: gptAnswer,
-        transcript,
-        matches: relevant.length,
-        model_used: gptModel,
-        whisper_used: whisperServer,
-        whisper_url: cfg.whisper_server_url || "openai",
-      }),
-    };
-  } catch (err) {
-    console.error("❌ Ошибка:", err);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({
-        error: "Internal Server Error",
-        details: err.message,
-      }),
-    };
-  }
-};
