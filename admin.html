@@ -12,10 +12,7 @@
       margin: auto;
       background: #f9f9f9;
     }
-    h1 {
-      font-size: 24px;
-      margin-bottom: 10px;
-    }
+    h1 { font-size: 24px; margin-bottom: 10px; }
     .section {
       margin-bottom: 30px;
       padding: 12px;
@@ -23,10 +20,7 @@
       border: 1px solid #ddd;
       border-radius: 8px;
     }
-    label {
-      display: block;
-      margin: 6px 0;
-    }
+    label { display: block; margin: 6px 0; }
     input[type="number"] {
       width: 100%;
       padding: 6px;
@@ -42,9 +36,7 @@
       font-size: 16px;
       cursor: pointer;
     }
-    button:hover {
-      background: #005fa3;
-    }
+    button:hover { background: #005fa3; }
     .config-output {
       margin-top: 30px;
       background: #f0f0f0;
@@ -52,6 +44,11 @@
       border-radius: 6px;
       font-family: monospace;
       white-space: pre-line;
+    }
+    .desc {
+      font-size: 12px;
+      color: #555;
+      margin-left: 20px;
     }
   </style>
 </head>
@@ -68,8 +65,7 @@
 
   <div class="section">
     <h3>🎙 Whisper сервер</h3>
-    <label><input type="radio" name="whisper_server" value="openai"> openai</label>
-    <label><input type="radio" name="whisper_server" value="whisper-large-v3-turbo"> whisper-large-v3-turbo</label>
+    <div id="whisperList">Загрузка списка серверов...</div>
   </div>
 
   <div class="section">
@@ -100,24 +96,50 @@
         const res = await fetch('/.netlify/functions/read-config');
         const cfg = await res.json();
 
-        // Выделим активные чекбоксы
-        const modelInput = document.querySelector(`input[name="gpt_model"][value="${cfg.gpt_model}"]`);
-        if (modelInput) modelInput.checked = true;
+        // выделяем активные чекбоксы
+        document.querySelector(`input[name="gpt_model"][value="${cfg.gpt_model}"]`)?.setAttribute('checked', true);
+        document.querySelector(`input[name="language"][value="${cfg.language}"]`)?.setAttribute('checked', true);
+        document.querySelector('input[name="temperature"]').value = cfg.temperature || 0.7;
 
-        const whisperInput = document.querySelector(`input[name="whisper_server"][value="${cfg.whisper_server}"]`);
-        if (whisperInput) whisperInput.checked = true;
-
-        const langInput = document.querySelector(`input[name="language"][value="${cfg.language}"]`);
-        if (langInput) langInput.checked = true;
-
-        const tempInput = document.querySelector('input[name="temperature"]');
-        if (tempInput) tempInput.value = cfg.temperature;
-
-        // Выводим текстом
+        // отображаем текущие данные
         showCurrentConfig(cfg);
+
+        // после загрузки конфига — грузим список серверов
+        loadWhisperServers(cfg.whisper_server);
       } catch (err) {
         document.getElementById("configOutput").innerText = "⚠️ Ошибка загрузки конфигурации.";
         console.error(err);
+      }
+    }
+
+    async function loadWhisperServers(activeId) {
+      try {
+        const res = await fetch('/.netlify/functions/read-whisper-servers');
+        const servers = await res.json();
+        const whisperDiv = document.getElementById('whisperList');
+        whisperDiv.innerHTML = '';
+
+        servers.forEach(srv => {
+          const label = document.createElement('label');
+          const input = document.createElement('input');
+          input.type = 'radio';
+          input.name = 'whisper_server';
+          input.value = srv.id;
+          if (srv.id === activeId) input.checked = true;
+
+          label.appendChild(input);
+          label.append(` ${srv.name} (${srv.id})`);
+
+          const desc = document.createElement('div');
+          desc.className = 'desc';
+          desc.textContent = srv.description;
+          label.appendChild(desc);
+
+          whisperDiv.appendChild(label);
+        });
+      } catch (err) {
+        document.getElementById('whisperList').innerText = '⚠️ Не удалось загрузить список серверов.';
+        console.error('Ошибка загрузки серверов Whisper:', err);
       }
     }
 
@@ -171,6 +193,5 @@ Whisper-сервер: ${cfg.whisper_server}
 
     loadConfig();
   </script>
-
 </body>
 </html>
