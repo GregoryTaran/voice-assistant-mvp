@@ -13,7 +13,7 @@ const AIRTABLE_BASE_ID = process.env.AIRTABLE_BASE_ID;
 const TABLE_NOTES       = "Notes";                 // Таблица с заметками
 const DEFAULT_GPT_MODEL = "gpt-4-1106-preview";    // Модель GPT
 const DEFAULT_TZ        = "Europe/Dublin";         // Таймзона по умолчанию
-const DEFAULT_GDOC_ID   = "1BbFm6qZl75g4MVB_Q6c5nVjUc0VGaPBbJ83MXoMfN6M"; // System Prompt из Google Doc
+const DEFAULT_GDOC_ID   = "1BbFm6qZl75g4MVB_Q6c5nVjUc0VGaPBbJ83MXoMfN6M"; // System Prompt (Google Doc)
 
 function b64ToBuffer(b64) {
   return Buffer.from(b64, "base64");
@@ -27,8 +27,7 @@ async function transcribeWithOpenAI(audioBase64, mimeType) {
     contentType: mimeType || "audio/webm",
   });
   form.append("model", "whisper-1");
-  // Можно ускорить, зафиксировав язык:
-  // form.append("language", "ru");
+  // form.append("language", "ru"); // можно ускорить, если язык фиксированный
 
   const resp = await fetch("https://api.openai.com/v1/audio/transcriptions", {
     method: "POST",
@@ -89,7 +88,7 @@ async function parseNoteWithGPT({ promptText, transcript, tz, nowUtc }) {
   return parsed;
 }
 
-/** 4) Вспомогательные: Airtable CRUD */
+/** 4) Airtable CRUD */
 async function airtableCreate(fields) {
   const url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${encodeURIComponent(TABLE_NOTES)}`;
   const resp = await fetch(url, {
@@ -107,13 +106,18 @@ async function airtableCreate(fields) {
   return resp.json();
 }
 
-async function airtableList() {
+async function airtableList({ archived = false } = {}) {
   const url = new URL(`https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${encodeURIComponent(TABLE_NOTES)}`);
   url.searchParams.set("pageSize", "50");
   url.searchParams.set("sort[0][field]", "ReminderTime");
   url.searchParams.set("sort[0][direction]", "desc");
-  // Показываем только неархивные
-  url.searchParams.set("filterByFormula", "NOT({Archived})");
+
+  // фильтр по архивности
+  if (archived) {
+    url.searchParams.set("filterByFormula", "{Archived}");
+  } else {
+    url.searchParams.set("filterByFormula", "NOT({Archived})");
+  }
 
   const resp = await fetch(url.toString(), {
     headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}` },
@@ -157,9 +161,10 @@ exports.handler = async (event) => {
     const params = event.queryStringParameters || {};
     const action = (params.action || "").toLowerCase();
 
-    // === GET /notes?action=list ===
+    // === GET /notes?action=list[&archived=1] ===
     if (action === "list" && event.httpMethod === "GET") {
-      const notes = await airtableList();
+      const archivedFlag = (event.queryStringParameters?.archived || "") === "1";
+      const notes = await airtableList({ archived: archivedFlag });
       return {
         statusCode: 200,
         headers: { "Content-Type": "application/json" },
@@ -200,7 +205,7 @@ exports.handler = async (event) => {
       const noteText   = parsed.text || transcript || "";
       const method     = parsed.method || "PUSH";
       const reminderISO =
-        parsed.reminder_time_utc || parsed.reminder_time || null; // предпочитаем UTC
+        parsed.reminder_time_utc || parsed.reminder_time || null; // предпочитаем UTC если есть
 
       const fields = {
         Text: noteText,
@@ -208,7 +213,7 @@ exports.handler = async (event) => {
         RawText: transcript,
         FromVoice: true,
         Parsed: true,
-        Archived: false, // т.к. поле теперь Checkbox — это корректно
+        Archived: false, // Checkbox в Airtable
       };
       if (reminderISO) fields.ReminderTime = reminderISO;
 
