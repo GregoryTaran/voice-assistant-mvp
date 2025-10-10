@@ -4,18 +4,13 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Умные заметки — z.html</title>
-
-  <!-- Абсолютный путь + кэш-бастер -->
-  <link rel="stylesheet" href="/z.css?v=3" />
+  <link rel="stylesheet" href="/z.css?v=4" />
 </head>
 <body>
   <div class="container">
     <!-- БЛОК 1 -->
     <header class="card header">
-      <div class="logo">
-        <!-- Текстовый бейдж или <img src="/logo.svg" alt="Логотип"> -->
-        ЛОГО
-      </div>
+      <div class="logo">ЛОГО</div>
       <h1 class="title">УМНЫЕ ЗАМЕТКИ</h1>
     </header>
 
@@ -42,7 +37,13 @@
       <div id="notesContainer" class="notes"></div>
     </section>
 
-    <!-- БЛОК 4: Конфигурация -->
+    <!-- БЛОК 4: Архив -->
+    <section class="card notes-archive">
+      <h2>АРХИВНЫЕ ЗАМЕТКИ</h2>
+      <div id="archiveContainer" class="notes"></div>
+    </section>
+
+    <!-- БЛОК 5: Конфигурация -->
     <section class="card config">
       <h2>Конфигурация</h2>
       <div id="configContent" class="config-grid">
@@ -53,12 +54,11 @@
   </div>
 
   <script>
-    // Передаем ID Google Doc и таймзону (браузерную) в JS
     window.SMART_NOTES = {
       gdocId: "1BbFm6qZl75g4MVB_Q6c5nVjUc0VGaPBbJ83MXoMfN6M",
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
     };
   </script>
-  <script src="/z.js" defer></script>
+  <script src="/z.js?v=4" defer></script>
 </body>
 </html>
