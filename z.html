@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Умные заметки — z.html</title>
+  <link rel="stylesheet" href="./z.css" />
+</head>
+<body>
+  <div class="container">
+    <!-- БЛОК 1 -->
+    <header class="card header">
+      <div class="logo">ЛОГО</div>
+      <div class="title">УМНЫЕ ЗАМЕТКИ</div>
+    </header>
+
+    <!-- БЛОК 2 -->
+    <section class="card create-note">
+      <h2>СОЗДАНИЕ НОВОЙ ЗАМЕТКИ</h2>
+      <p class="hint">
+        Для создания новой памятки нажмите и удерживайте кнопку, говорите.
+        Укажите голосом, когда напомнить о заметке (дату, время, периодичность).
+        После записи вы сможете выбрать способ напоминания (PUSH, SMS, CALL).
+      </p>
+
+      <div class="record-wrap">
+        <button id="holdRecordBtn" class="primary">
+          СОЗДАТЬ НОВУЮ ЗАМЕТКУ
+        </button>
+        <div id="recStatus" class="status">Ожидание…</div>
+      </div>
+    </section>
+
+    <!-- БЛОК 3 -->
+    <section class="card notes-list">
+      <h2>СПИСОК ЗАМЕТОК</h2>
+      <div id="notesContainer" class="notes"></div>
+    </section>
+
+    <!-- БЛОК 4: Конфигурация -->
+    <section class="card config">
+      <h2>Конфигурация</h2>
+      <div id="configContent">
+        <div>🧠 GPT-Модель: <span id="cfgModel">—</span></div>
+        <div>🎙 Whisper-Сервер: <span id="cfgWhisper">—</span></div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    window.SMART_NOTES = {
+      gdocId: "1BbFm6qZl75g4MVB_Q6c5nVjUc0VGaPBbJ83MXoMfN6M",
+      timezone: "Europe/Dublin"
+    };
+  </script>
+  <script src="./z.js" defer></script>
+</body>
+</html>
