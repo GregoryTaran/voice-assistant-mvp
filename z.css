@@ -1,117 +1,58 @@
-/* Светло-серый фон всей страницы */
-body {
-  margin: 0;
-  background: #f3f4f6;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
-               Ubuntu, Cantarell, 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-               Arial, 'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji',
-               'Segoe UI Symbol', 'Noto Color Emoji', sans-serif;
-  color: #111827;
-}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Умные заметки — z.html</title>
+  <link rel="stylesheet" href="./z.css" />
+</head>
+<body>
+  <div class="container">
+    <!-- БЛОК 1 -->
+    <header class="card header">
+      <div class="logo">ЛОГО</div>
+      <div class="title">УМНЫЕ ЗАМЕТКИ</div>
+    </header>
 
-/* Контейнер */
-.container {
-  max-width: 900px;
-  margin: 0 auto;
-  padding: 16px;
-}
+    <!-- БЛОК 2 -->
+    <section class="card create-note">
+      <h2>СОЗДАНИЕ НОВОЙ ЗАМЕТКИ</h2>
+      <p class="hint">
+        Для создания новой памятки нажмите и удерживайте кнопку, говорите.
+        Укажите голосом, когда напомнить о заметке (дату, время, периодичность).
+        После записи вы сможете выбрать способ напоминания (PUSH, SMS, CALL).
+      </p>
 
-/* Белые блоки-карточки */
-.card {
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.10);
-  padding: 16px 20px;
-  margin-bottom: 16px;
-}
+      <div class="record-wrap">
+        <button id="holdRecordBtn" class="primary">
+          СОЗДАТЬ НОВУЮ ЗАМЕТКУ
+        </button>
+        <div id="recStatus" class="status">Ожидание…</div>
+      </div>
+    </section>
 
-/* Шапка */
-.header {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-.logo {
-  background: #111827;
-  color: white;
-  border-radius: 6px;
-  padding: 8px 12px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-}
-.title {
-  font-size: 1.25rem;
-  font-weight: 700;
-}
+    <!-- БЛОК 3 -->
+    <section class="card notes-list">
+      <h2>СПИСОК ЗАМЕТОК</h2>
+      <div id="notesContainer" class="notes"></div>
+    </section>
 
-/* Кнопка записи */
-.primary {
-  border: none;
-  background: #111827;
-  color: white;
-  padding: 14px 18px;
-  border-radius: 8px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: transform .06s ease, opacity .2s ease;
-}
-.primary:active {
-  transform: scale(0.98);
-}
-.primary.recording {
-  background: #dc2626; /* красный при записи */
-}
+    <!-- БЛОК 4: Конфигурация -->
+    <section class="card config">
+      <h2>Конфигурация</h2>
+      <div id="configContent">
+        <div>🧠 GPT-Модель: <span id="cfgModel">—</span></div>
+        <div>🎙 Whisper-Сервер: <span id="cfgWhisper">—</span></div>
+      </div>
+    </section>
+  </div>
 
-/* Подпись и статус */
-.hint {
-  margin-top: 0;
-  color: #4b5563;
-}
-.record-wrap {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 10px;
-}
-.status {
-  font-size: 0.95rem;
-  color: #6b7280;
-}
-
-/* Список заметок */
-.notes .row {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 12px;
-  padding: 12px 0;
-  border-bottom: 1px solid #e5e7eb;
-}
-.notes .row:last-child {
-  border-bottom: none;
-}
-.note-title {
-  font-weight: 600;
-}
-.note-meta {
-  font-size: 0.9rem;
-  color: #6b7280;
-}
-.actions {
-  display: flex;
-  gap: 8px;
-}
-.action-btn {
-  border: 1px solid #e5e7eb;
-  background: #f9fafb;
-  color: #111827;
-  padding: 8px 10px;
-  border-radius: 6px;
-  cursor: pointer;
-}
-.action-btn:hover {
-  background: #f3f4f6;
-}
-.empty {
-  color: #6b7280;
-  font-style: italic;
-}
+  <script>
+    window.SMART_NOTES = {
+      gdocId: "1BbFm6qZl75g4MVB_Q6c5nVjUc0VGaPBbJ83MXoMfN6M",
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+    };
+  </script>
+  <script src="./z.js" defer></script>
+</body>
+</html>
