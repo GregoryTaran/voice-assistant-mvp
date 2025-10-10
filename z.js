@@ -8,7 +8,7 @@ async function fetchJSON(url, options = {}) {
   return res.json();
 }
 
-function fmtLocal(dtISO, tz = "Europe/Dublin") {
+function fmtLocal(dtISO, tz) {
   if (!dtISO) return "—";
   try {
     const d = new Date(dtISO);
@@ -24,7 +24,7 @@ function fmtLocal(dtISO, tz = "Europe/Dublin") {
       timeZone: tz
     });
     return `${date} ${time}`;
-  } catch (e) {
+  } catch {
     return dtISO;
   }
 }
@@ -34,7 +34,7 @@ async function loadConfig() {
     const cfg = await fetchJSON("/.netlify/functions/read-config");
     document.getElementById("cfgModel").textContent = cfg?.gptModel || "gpt-4-1106-preview";
     document.getElementById("cfgWhisper").textContent = cfg?.whisperServer || "openai";
-  } catch (e) {
+  } catch {
     document.getElementById("cfgModel").textContent = "gpt-4-1106-preview";
     document.getElementById("cfgWhisper").textContent = "openai";
   }
@@ -45,11 +45,21 @@ async function loadNotes() {
   listEl.innerHTML = "<div class='empty'>Загрузка…</div>";
   try {
     const data = await fetchJSON("/.netlify/functions/notes?action=list");
-    const notes = data?.notes || [];
+    const tz = (window.SMART_NOTES && window.SMART_NOTES.timezone) || "Europe/Dublin";
+    let notes = data?.notes || [];
+
+    // Клиентская сортировка: сначала с датой (по убыванию), затем без даты
+    notes.sort((a, b) => {
+      const ta = a.reminder_time ? Date.parse(a.reminder_time) : -Infinity;
+      const tb = b.reminder_time ? Date.parse(b.reminder_time) : -Infinity;
+      return tb - ta;
+    });
+
     if (!notes.length) {
       listEl.innerHTML = "<div class='empty'>Пока нет заметок</div>";
       return;
     }
+
     listEl.innerHTML = "";
     for (const n of notes) {
       const row = document.createElement("div");
@@ -62,7 +72,7 @@ async function loadNotes() {
 
       const meta = document.createElement("div");
       meta.className = "note-meta";
-      meta.textContent = `Время напоминания: ${fmtLocal(n.reminder_time)}  •  Способ: ${n.method || "PUSH"}`;
+      meta.textContent = `Время напоминания: ${fmtLocal(n.reminder_time, tz)}  •  Способ: ${n.method || "PUSH"}`;
 
       left.appendChild(title);
       left.appendChild(meta);
@@ -82,7 +92,7 @@ async function loadNotes() {
         try {
           await fetchJSON("/.netlify/functions/notes?action=archive", {
             method: "POST",
-            headers: {"Content-Type":"application/json"},
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ id: n.id })
           });
           await loadNotes();
@@ -151,7 +161,6 @@ function setupRecorder() {
       const blob = new Blob(chunks, { type: mediaRecorder?.mimeType || "audio/webm" });
       const base64 = await blobToBase64(blob);
 
-      // Отправка на сервер для транскрибации + парсинга + сохранения
       const payload = {
         audioBase64: base64,
         mimeType: blob.type,
@@ -176,17 +185,17 @@ function setupRecorder() {
   // Мышь и тач
   btn.addEventListener("mousedown", start);
   btn.addEventListener("mouseup", stop);
-  btn.addEventListener("mouseleave", (e) => {
+  btn.addEventListener("mouseleave", () => {
     if (btn.classList.contains("recording")) stop();
   });
   btn.addEventListener("touchstart", (e) => {
     e.preventDefault();
     start();
-  }, {passive:false});
+  }, { passive: false });
   btn.addEventListener("touchend", (e) => {
     e.preventDefault();
     stop();
-  }, {passive:false});
+  }, { passive: false });
 }
 
 function blobToBase64(blob) {
