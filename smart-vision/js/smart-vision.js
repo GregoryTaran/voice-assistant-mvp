@@ -8,9 +8,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (isTalking) {
       micBtn.classList.add("active", "pulse");
+      micBtn.querySelector(".waves").classList.add("show");
       status.textContent = "Разговор начался…";
     } else {
       micBtn.classList.remove("active", "pulse");
+      micBtn.querySelector(".waves").classList.remove("show");
       status.textContent = "Разговор завершён.";
     }
   });
