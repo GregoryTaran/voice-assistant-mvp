@@ -6,7 +6,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let audioContext, analyser, microphone, dataArray, stream;
   let animationId;
   let lastStatus = "";
-  const isMobile = /Mobi|Android/i.test(navigator.userAgent);
+  const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
 
   micBtn.addEventListener("click", async () => {
     isTalking = !isTalking;
@@ -29,7 +29,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  /* === DESKTOP MODE === */
+  /* === DESKTOP MODE (реальный анализ звука) === */
   async function startDesktopMic() {
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -53,7 +53,6 @@ document.addEventListener("DOMContentLoaded", () => {
           wave.style.opacity = Math.min(0.7, volume / 50);
         });
 
-        // только три чётких состояния
         let newStatus = "";
         if (volume < 3) newStatus = "Проверьте микрофон 🎙";
         else newStatus = "Говорите 🗣️";
@@ -73,23 +72,40 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  /* === MOBILE MODE === */
-  async function startMobileMode() {
+  /* === MOBILE MODE (симуляция волн) === */
+  function startMobileMode() {
     updateStatus("Говорите 🗣️");
+    let pulse = 0;
+
+    function animateMobile() {
+      const scaleBase = 1 + 0.08 * Math.sin(pulse);
+      const opacityBase = 0.25 + 0.2 * Math.abs(Math.sin(pulse));
+
+      waves.querySelectorAll("span").forEach((wave, i) => {
+        const scale = scaleBase + i * 0.2;
+        wave.style.transform = `scale(${scale})`;
+        wave.style.opacity = opacityBase - i * 0.05;
+      });
+
+      pulse += 0.15;
+      if (isTalking) requestAnimationFrame(animateMobile);
+    }
+
+    animateMobile();
   }
 
-  /* === STOP === */
+  /* === STOP (гарантированное выключение микрофона) === */
   function stopMic() {
     if (animationId) cancelAnimationFrame(animationId);
     if (audioContext) audioContext.close();
     if (stream) {
-      stream.getTracks().forEach(track => track.stop());
+      stream.getTracks().forEach((track) => track.stop());
       stream = null;
     }
     updateStatus("Разговор завершён.");
   }
 
-  /* === STATUS (плавное обновление) === */
+  /* === STATUS (плавная смена текста) === */
   function updateStatus(text) {
     status.style.opacity = 0;
     setTimeout(() => {
