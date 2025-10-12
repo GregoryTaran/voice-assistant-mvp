@@ -2,9 +2,13 @@ document.addEventListener("DOMContentLoaded", () => {
   const micBtn = document.getElementById("micBtn");
   const status = document.getElementById("status");
   const waves = micBtn.querySelector(".waves");
+  const historyEl = document.getElementById("history");
+
   let isTalking = false;
-  let audioContext, analyser, microphone, dataArray, stream;
-  let animationId;
+  let audioContext, analyser, microphone, dataArray, stream, mediaRecorder;
+  let animationId, chunkTimer;
+  let audioChunks = [];
+  let partialText = "";
   let lastStatus = "";
   const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
 
@@ -21,15 +25,18 @@ document.addEventListener("DOMContentLoaded", () => {
       } else {
         startDesktopMic();
       }
+
+      startRecording();
     } else {
       micBtn.classList.remove("active", "pulse");
       waves.classList.remove("show");
       updateStatus("Разговор завершён.");
+      stopRecording();
       stopMic();
     }
   });
 
-  /* === DESKTOP MODE (реальный анализ звука) === */
+  /* === РЕАЛЬНЫЙ МИКРОФОН + АНАЛИЗ ВОЛН === */
   async function startDesktopMic() {
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -72,45 +79,10 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  /* === MOBILE MODE (симуляция волн) === */
+  /* === МОБИЛЬНЫЙ РЕЖИМ (СИМУЛЯЦИЯ ВОЛН) === */
   function startMobileMode() {
     updateStatus("Говорите 🗣️");
     let pulse = 0;
 
     function animateMobile() {
-      const scaleBase = 1 + 0.08 * Math.sin(pulse);
-      const opacityBase = 0.25 + 0.2 * Math.abs(Math.sin(pulse));
-
-      waves.querySelectorAll("span").forEach((wave, i) => {
-        const scale = scaleBase + i * 0.2;
-        wave.style.transform = `scale(${scale})`;
-        wave.style.opacity = opacityBase - i * 0.05;
-      });
-
-      pulse += 0.15;
-      if (isTalking) requestAnimationFrame(animateMobile);
-    }
-
-    animateMobile();
-  }
-
-  /* === STOP (гарантированное выключение микрофона) === */
-  function stopMic() {
-    if (animationId) cancelAnimationFrame(animationId);
-    if (audioContext) audioContext.close();
-    if (stream) {
-      stream.getTracks().forEach((track) => track.stop());
-      stream = null;
-    }
-    updateStatus("Разговор завершён.");
-  }
-
-  /* === STATUS (плавная смена текста) === */
-  function updateStatus(text) {
-    status.style.opacity = 0;
-    setTimeout(() => {
-      status.textContent = text;
-      status.style.opacity = 1;
-    }, 150);
-  }
-});
+      const scaleBase = 1 + 0.08 * Mat*
