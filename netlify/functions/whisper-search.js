@@ -5,7 +5,7 @@ import fs from "fs";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-// Отключаем стандартный body parser Netlify
+// Отключаем встроенный body parser Netlify
 export const config = {
   api: {
     bodyParser: false,
@@ -13,40 +13,42 @@ export const config = {
 };
 
 export default async (req) => {
-  if (req.method !== "POST") {
-    return {
-      statusCode: 405,
-      body: JSON.stringify({ error: "Метод не поддерживается" }),
-    };
-  }
-
   try {
-    const form = formidable({ multiples: false });
-    const [fields, files] = await form.parse(req);
-
-    const file = files.file?.[0] || files.file;
-    if (!file) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ error: "Нет файла в запросе" }),
-      };
+    if (req.method !== "POST") {
+      return new Response(JSON.stringify({ error: "Метод не поддерживается" }), {
+        status: 405,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
+    // Парсим файл
+    const form = formidable({ multiples: false });
+    const [fields, files] = await form.parse(req);
+    const file = files.file?.[0] || files.file;
+
+    if (!file) {
+      return new Response(JSON.stringify({ error: "Нет файла в запросе" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    // Отправляем в OpenAI Whisper
     const transcription = await openai.audio.transcriptions.create({
       file: fs.createReadStream(file.filepath),
       model: "whisper-1",
       language: "ru",
     });
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ text: transcription.text }),
-    };
+    return new Response(JSON.stringify({ text: transcription.text }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
   } catch (error) {
     console.error("Ошибка Whisper:", error);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: error.message }),
-    };
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 };
