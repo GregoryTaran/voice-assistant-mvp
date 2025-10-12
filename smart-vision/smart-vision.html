@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SMART VISION — Живой разговор</title>
+  <link rel="stylesheet" href="style.css?v=1" />
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      background: #f9fafb;
+      color: #111;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+    }
+    h1 {
+      font-weight: 700;
+      font-size: 1.8rem;
+      margin-bottom: 1.5rem;
+      color: #222;
+    }
+    .mic-button {
+      background: linear-gradient(135deg, #5b9fff, #007bff);
+      border: none;
+      border-radius: 50%;
+      width: 120px;
+      height: 120px;
+      font-size: 2rem;
+      color: #fff;
+      cursor: pointer;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+      transition: all 0.25s ease;
+    }
+    .mic-button:hover {
+      transform: scale(1.05);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+    }
+    .status {
+      margin-top: 1.5rem;
+      font-size: 1.2rem;
+      color: #555;
+    }
+    .history {
+      width: 90%;
+      max-width: 600px;
+      margin-top: 2rem;
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+      padding: 1rem 1.5rem;
+      overflow-y: auto;
+      max-height: 50vh;
+    }
+    .message {
+      margin-bottom: 1rem;
+      line-height: 1.4;
+    }
+    .user {
+      color: #007bff;
+      font-weight: 600;
+    }
+    .assistant {
+      color: #222;
+    }
+  </style>
+</head>
+<body>
+  <h1>SMART VISION</h1>
+
+  <button id="micBtn" class="mic-button">🎙</button>
+
+  <div id="status" class="status">Нажмите, чтобы начать разговор</div>
+
+  <div id="history" class="history">
+    <!-- История сообщений будет появляться здесь -->
+  </div>
+
+  <!-- На следующем шаге подключим smart-vision.js -->
+</body>
+</html>
