@@ -7,10 +7,10 @@ document.addEventListener("DOMContentLoaded", () => {
     isTalking = !isTalking;
 
     if (isTalking) {
-      micBtn.classList.add("active");
+      micBtn.classList.add("active", "pulse");
       status.textContent = "Разговор начался…";
     } else {
-      micBtn.classList.remove("active");
+      micBtn.classList.remove("active", "pulse");
       status.textContent = "Разговор завершён.";
     }
   });
