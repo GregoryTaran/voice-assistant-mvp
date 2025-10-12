@@ -5,17 +5,19 @@ import fs from "fs";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-// Отключаем автоматический body-parser Netlify для работы с формами
+// Отключаем стандартный body parser Netlify
 export const config = {
   api: {
     bodyParser: false,
   },
 };
 
-export default async (req, res) => {
+export default async (req) => {
   if (req.method !== "POST") {
-    res.status(405).json({ error: "Метод не поддерживается" });
-    return;
+    return {
+      statusCode: 405,
+      body: JSON.stringify({ error: "Метод не поддерживается" }),
+    };
   }
 
   try {
@@ -24,8 +26,10 @@ export default async (req, res) => {
 
     const file = files.file?.[0] || files.file;
     if (!file) {
-      res.status(400).json({ error: "Нет файла в запросе" });
-      return;
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: "Нет файла в запросе" }),
+      };
     }
 
     const transcription = await openai.audio.transcriptions.create({
@@ -34,9 +38,15 @@ export default async (req, res) => {
       language: "ru",
     });
 
-    res.status(200).json({ text: transcription.text });
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ text: transcription.text }),
+    };
   } catch (error) {
     console.error("Ошибка Whisper:", error);
-    res.status(500).json({ error: error.message });
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: error.message }),
+    };
   }
 };
