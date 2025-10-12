@@ -6,6 +6,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let audioContext, analyser, microphone, dataArray, stream;
   let animationId;
   let lastStatus = "";
+  const isMobile = /Mobi|Android/i.test(navigator.userAgent);
 
   micBtn.addEventListener("click", async () => {
     isTalking = !isTalking;
@@ -14,16 +15,22 @@ document.addEventListener("DOMContentLoaded", () => {
       micBtn.classList.add("active", "pulse");
       waves.classList.add("show");
       updateStatus("Разговор начался…");
-      startMicVisualization();
+
+      if (isMobile) {
+        startMobileMode();
+      } else {
+        startDesktopMic();
+      }
     } else {
       micBtn.classList.remove("active", "pulse");
       waves.classList.remove("show");
       updateStatus("Разговор завершён.");
-      stopMicVisualization(true); // 👈 гарантированно останавливаем
+      stopMic();
     }
   });
 
-  async function startMicVisualization() {
+  /* === DESKTOP MODE === */
+  async function startDesktopMic() {
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -40,24 +47,16 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         const volume = sum / dataArray.length;
 
-        const scale = 1 + volume / 60;
-        const opacity = Math.min(0.8, volume / 80);
-
         waves.querySelectorAll("span").forEach((wave, i) => {
-          wave.style.transform = `scale(${scale + i * 0.2})`;
-          wave.style.opacity = opacity;
+          const scale = 1 + volume / 70 + i * 0.15;
+          wave.style.transform = `scale(${scale})`;
+          wave.style.opacity = Math.min(0.7, volume / 50);
         });
 
+        // только три чётких состояния
         let newStatus = "";
-        if (volume < 2) {
-          newStatus = "Проверьте микрофон 🎙";
-        } else if (volume < 10) {
-          newStatus = "Говорите чуть громче 🗣️";
-        } else if (volume < 35) {
-          newStatus = "Слышу отлично 👂";
-        } else {
-          newStatus = "Очень громко! 🔊";
-        }
+        if (volume < 3) newStatus = "Проверьте микрофон 🎙";
+        else newStatus = "Говорите 🗣️";
 
         if (newStatus !== lastStatus) {
           updateStatus(newStatus);
@@ -69,32 +68,33 @@ document.addEventListener("DOMContentLoaded", () => {
 
       animate();
     } catch (err) {
-      console.error("Ошибка доступа к микрофону:", err);
+      console.error("Ошибка микрофона:", err);
       updateStatus("Ошибка доступа к микрофону 😕");
-      isTalking = false;
     }
   }
 
-  function stopMicVisualization(forceStop = false) {
+  /* === MOBILE MODE === */
+  async function startMobileMode() {
+    updateStatus("Говорите 🗣️");
+  }
+
+  /* === STOP === */
+  function stopMic() {
     if (animationId) cancelAnimationFrame(animationId);
     if (audioContext) audioContext.close();
-
-    // 🔒 Полное отключение микрофона
-    if (forceStop && stream) {
-      const tracks = stream.getTracks();
-      tracks.forEach((track) => track.stop());
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
       stream = null;
-      console.log("[Smart Vision] Микрофон полностью отключён ✅");
     }
-
     updateStatus("Разговор завершён.");
   }
 
+  /* === STATUS (плавное обновление) === */
   function updateStatus(text) {
     status.style.opacity = 0;
     setTimeout(() => {
       status.textContent = text;
       status.style.opacity = 1;
-    }, 200);
+    }, 150);
   }
 });
