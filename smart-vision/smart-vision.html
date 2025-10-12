@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>SMART VISION — Живой разговор</title>
   <link rel="icon" href="favicon.ico" type="image/x-icon" />
-  <link rel="stylesheet" href="css/style.css?v=1" />
+  <link rel="stylesheet" href="css/style.css?v=2" />
 </head>
 <body>
   <header class="header">
@@ -15,7 +15,12 @@
   <main>
     <h1>SMART VISION</h1>
 
-    <button id="micBtn" class="mic-button">🎙</button>
+    <button id="micBtn" class="mic-button">
+      🎙
+      <div class="waves">
+        <span></span><span></span><span></span>
+      </div>
+    </button>
 
     <div id="status" class="status">Нажмите, чтобы начать разговор</div>
 
@@ -23,7 +28,7 @@
       <!-- История сообщений будет появляться здесь -->
     </div>
   </main>
-<script src="js/smart-vision.js?v=1"></script>
-  <!-- На следующем шаге подключим smart-vision.js -->
+
+  <script src="js/smart-vision.js?v=2"></script>
 </body>
 </html>
