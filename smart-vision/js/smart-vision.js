@@ -5,6 +5,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let isTalking = false;
   let audioContext, analyser, microphone, dataArray;
   let animationId;
+  let lastStatus = "";
 
   micBtn.addEventListener("click", async () => {
     isTalking = !isTalking;
@@ -12,12 +13,12 @@ document.addEventListener("DOMContentLoaded", () => {
     if (isTalking) {
       micBtn.classList.add("active", "pulse");
       waves.classList.add("show");
-      status.textContent = "Разговор начался…";
+      updateStatus("Разговор начался…");
       startMicVisualization();
     } else {
       micBtn.classList.remove("active", "pulse");
       waves.classList.remove("show");
-      status.textContent = "Разговор завершён.";
+      updateStatus("Разговор завершён.");
       stopMicVisualization();
     }
   });
@@ -43,21 +44,26 @@ document.addEventListener("DOMContentLoaded", () => {
         const scale = 1 + volume / 60;
         const opacity = Math.min(0.8, volume / 80);
 
-        // визуальные волны
         waves.querySelectorAll("span").forEach((wave, i) => {
           wave.style.transform = `scale(${scale + i * 0.2})`;
           wave.style.opacity = opacity;
         });
 
-        // 💬 текстовая реакция на громкость
-        if (volume < 5) {
-          status.textContent = "Я вас не слышу… 🎧";
-        } else if (volume < 15) {
-          status.textContent = "Говорите чуть громче 🗣️";
+        // 💬 Реакция на громкость
+        let newStatus = "";
+        if (volume < 2) {
+          newStatus = "Проверьте микрофон 🎙";
+        } else if (volume < 10) {
+          newStatus = "Говорите чуть громче 🗣️";
         } else if (volume < 35) {
-          status.textContent = "Слышу отлично 👂";
+          newStatus = "Слышу отлично 👂";
         } else {
-          status.textContent = "Очень громко! 🔊";
+          newStatus = "Очень громко! 🔊";
+        }
+
+        if (newStatus !== lastStatus) {
+          updateStatus(newStatus);
+          lastStatus = newStatus;
         }
 
         animationId = requestAnimationFrame(animate);
@@ -66,7 +72,7 @@ document.addEventListener("DOMContentLoaded", () => {
       animate();
     } catch (err) {
       console.error("Ошибка доступа к микрофону:", err);
-      status.textContent = "Ошибка доступа к микрофону 😕";
+      updateStatus("Ошибка доступа к микрофону 😕");
       isTalking = false;
     }
   }
@@ -74,6 +80,15 @@ document.addEventListener("DOMContentLoaded", () => {
   function stopMicVisualization() {
     if (animationId) cancelAnimationFrame(animationId);
     if (audioContext) audioContext.close();
-    status.textContent = "Разговор завершён.";
+    updateStatus("Разговор завершён.");
+  }
+
+  // ✨ Плавная смена статуса
+  function updateStatus(text) {
+    status.style.opacity = 0;
+    setTimeout(() => {
+      status.textContent = text;
+      status.style.opacity = 1;
+    }, 200);
   }
 });
