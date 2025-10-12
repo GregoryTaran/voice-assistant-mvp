@@ -85,3 +85,9 @@ h1 {
 .assistant {
   color: #222;
 }
+
+.mic-button.active {
+  background: linear-gradient(135deg, #ff7675, #d63031);
+  box-shadow: 0 8px 30px rgba(255, 118, 117, 0.5);
+  transform: scale(1.1);
+}
