@@ -38,15 +38,27 @@ document.addEventListener("DOMContentLoaded", () => {
         for (let i = 0; i < dataArray.length; i++) {
           sum += Math.abs(dataArray[i] - 128);
         }
-        const volume = sum / dataArray.length; // средняя громкость (0–128)
+        const volume = sum / dataArray.length;
 
-        const scale = 1 + volume / 60; // усиление масштаба
-        const opacity = Math.min(0.8, volume / 80); // прозрачность
+        const scale = 1 + volume / 60;
+        const opacity = Math.min(0.8, volume / 80);
 
+        // визуальные волны
         waves.querySelectorAll("span").forEach((wave, i) => {
           wave.style.transform = `scale(${scale + i * 0.2})`;
           wave.style.opacity = opacity;
         });
+
+        // 💬 текстовая реакция на громкость
+        if (volume < 5) {
+          status.textContent = "Я вас не слышу… 🎧";
+        } else if (volume < 15) {
+          status.textContent = "Говорите чуть громче 🗣️";
+        } else if (volume < 35) {
+          status.textContent = "Слышу отлично 👂";
+        } else {
+          status.textContent = "Очень громко! 🔊";
+        }
 
         animationId = requestAnimationFrame(animate);
       }
@@ -62,5 +74,6 @@ document.addEventListener("DOMContentLoaded", () => {
   function stopMicVisualization() {
     if (animationId) cancelAnimationFrame(animationId);
     if (audioContext) audioContext.close();
+    status.textContent = "Разговор завершён.";
   }
 });
