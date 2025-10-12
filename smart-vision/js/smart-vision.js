@@ -3,7 +3,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const status = document.getElementById("status");
   const waves = micBtn.querySelector(".waves");
   let isTalking = false;
-  let audioContext, analyser, microphone, dataArray;
+  let audioContext, analyser, microphone, dataArray, stream;
   let animationId;
   let lastStatus = "";
 
@@ -19,18 +19,17 @@ document.addEventListener("DOMContentLoaded", () => {
       micBtn.classList.remove("active", "pulse");
       waves.classList.remove("show");
       updateStatus("Разговор завершён.");
-      stopMicVisualization();
+      stopMicVisualization(true); // 👈 гарантированно останавливаем
     }
   });
 
   async function startMicVisualization() {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       audioContext = new (window.AudioContext || window.webkitAudioContext)();
       analyser = audioContext.createAnalyser();
       microphone = audioContext.createMediaStreamSource(stream);
       dataArray = new Uint8Array(analyser.frequencyBinCount);
-
       microphone.connect(analyser);
 
       function animate() {
@@ -49,7 +48,6 @@ document.addEventListener("DOMContentLoaded", () => {
           wave.style.opacity = opacity;
         });
 
-        // 💬 Реакция на громкость
         let newStatus = "";
         if (volume < 2) {
           newStatus = "Проверьте микрофон 🎙";
@@ -77,13 +75,21 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  function stopMicVisualization() {
+  function stopMicVisualization(forceStop = false) {
     if (animationId) cancelAnimationFrame(animationId);
     if (audioContext) audioContext.close();
+
+    // 🔒 Полное отключение микрофона
+    if (forceStop && stream) {
+      const tracks = stream.getTracks();
+      tracks.forEach((track) => track.stop());
+      stream = null;
+      console.log("[Smart Vision] Микрофон полностью отключён ✅");
+    }
+
     updateStatus("Разговор завершён.");
   }
 
-  // ✨ Плавная смена статуса
   function updateStatus(text) {
     status.style.opacity = 0;
     setTimeout(() => {
