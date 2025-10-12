@@ -5,7 +5,8 @@
     "node-fetch": "^2.6.9",
     "papaparse": "^5.4.1",
     "dotenv": "^16.3.1",
-    "@google-cloud/text-to-speech": "^4.2.0"
+    "@google-cloud/text-to-speech": "^4.2.0",
+    "formidable": "^3.5.1"
   },
   "scripts": {
     "build": "echo 'No build step'"
