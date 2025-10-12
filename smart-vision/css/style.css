@@ -36,6 +36,10 @@ h1 {
 }
 
 .mic-button {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: linear-gradient(135deg, #5b9fff, #007bff);
   border: none;
   border-radius: 50%;
@@ -46,11 +50,39 @@ h1 {
   cursor: pointer;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
   transition: all 0.25s ease;
+  margin: 0 auto;
+  overflow: hidden;
 }
 
 .mic-button:hover {
   transform: scale(1.05);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+.mic-button.active {
+  background: linear-gradient(135deg, #ff7675, #d63031);
+  box-shadow: 0 0 25px rgba(255, 118, 117, 0.6);
+  transform: scale(1.05);
+  position: relative;
+}
+
+.mic-button.pulse {
+  animation: pulseGlow 2s infinite ease-in-out;
+}
+
+@keyframes pulseGlow {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 10px rgba(255, 118, 117, 0.4);
+  }
+  50% {
+    transform: scale(1.1);
+    box-shadow: 0 0 25px rgba(255, 118, 117, 0.7);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 10px rgba(255, 118, 117, 0.4);
+  }
 }
 
 .status {
@@ -86,35 +118,8 @@ h1 {
   color: #222;
 }
 
-.mic-button.active {
-  background: linear-gradient(135deg, #ff7675, #d63031);
-  box-shadow: 0 8px 30px rgba(255, 118, 117, 0.5);
-  transform: scale(1.1);
-}
-.mic-button.active {
-  background: linear-gradient(135deg, #ff7675, #d63031);
-  box-shadow: 0 0 25px rgba(255, 118, 117, 0.6);
-  transform: scale(1.05);
-}
+/* === Волны вокруг кнопки === */
 
-.mic-button.pulse {
-  animation: pulseGlow 2s infinite ease-in-out;
-}
-
-@keyframes pulseGlow {
-  0% {
-    transform: scale(1);
-    box-shadow: 0 0 10px rgba(255, 118, 117, 0.4);
-  }
-  50% {
-    transform: scale(1.1);
-    box-shadow: 0 0 25px rgba(255, 118, 117, 0.7);
-  }
-  100% {
-    transform: scale(1);
-    box-shadow: 0 0 10px rgba(255, 118, 117, 0.4);
-  }
-}
 .waves {
   position: absolute;
   inset: 0;
@@ -160,5 +165,3 @@ h1 {
     opacity: 0;
   }
 }
-
-
