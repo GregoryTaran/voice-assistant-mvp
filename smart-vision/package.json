@@ -1,11 +1,12 @@
 {
   "name": "smart-vision",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "license": "MIT",
   "type": "module",
   "dependencies": {
     "openai": "^4.61.0",
     "busboy": "^1.6.0",
+    "fluent-ffmpeg": "^2.1.2",
     "fs-extra": "^11.2.0"
   }
 }
