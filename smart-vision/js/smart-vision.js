@@ -6,19 +6,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
   let isTalking = false;
   let audioContext, analyser, microphone, dataArray, stream, mediaRecorder;
-  let animationId, chunkTimer;
-  let audioChunks = [];
+  let animationId;
   let silenceStart = null;
-  let silenceThreshold = 3; // уровень громкости, ниже которого считаем тишину
-  let silenceLimit = 4000; // 4 секунды
+  const silenceThreshold = 3; // уровень громкости, ниже которого считаем тишину
+  const silenceLimit = 4000; // 4 секунды
 
   micBtn.addEventListener("click", async () => {
     isTalking = !isTalking;
+
     if (isTalking) {
       micBtn.classList.add("active", "pulse");
       waves.classList.add("show");
       updateStatus("Разговор начался…");
-
+      historyEl.innerHTML = "";
       await startMic();
       startRecording();
     } else {
@@ -55,7 +55,7 @@ document.addEventListener("DOMContentLoaded", () => {
       wave.style.opacity = Math.min(0.7, volume / 50);
     });
 
-    // Автостоп по тишине
+    // автостоп по тишине
     if (volume < silenceThreshold) {
       if (silenceStart === null) silenceStart = Date.now();
       else if (Date.now() - silenceStart > silenceLimit) {
@@ -71,23 +71,25 @@ document.addEventListener("DOMContentLoaded", () => {
 
   async function startRecording() {
     if (!stream) await startMic();
-    mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
-    mediaRecorder.start(500);
+    mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm;codecs=opus" });
+    mediaRecorder.start(2000); // каждые 2 секунды — стабильный чанк
 
     mediaRecorder.ondataavailable = async (e) => {
       if (e.data.size > 0) {
-        const blob = e.data;
-        sendAudioChunk(blob);
+        await sendAudioChunk(e.data);
       }
     };
 
-    mediaRecorder.onstop = () => clearInterval(chunkTimer);
+    mediaRecorder.onstop = () => {
+      updateStatus("Запись остановлена");
+    };
   }
 
   async function sendAudioChunk(blob) {
     try {
       const fd = new FormData();
       fd.append("file", blob, "chunk.webm");
+
       const res = await fetch("/.netlify/functions/transcribe", {
         method: "POST",
         body: fd,
@@ -108,6 +110,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function appendLiveText(text) {
     if (!text) return;
+
     let live = document.getElementById("liveText");
     if (!live) {
       live = document.createElement("div");
