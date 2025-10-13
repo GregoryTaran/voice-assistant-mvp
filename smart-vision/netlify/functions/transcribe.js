@@ -1,3 +1,4 @@
+// netlify/functions/transcribe.js
 import { OpenAI } from "openai";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -6,34 +7,44 @@ export const config = {
   runtime: "nodejs20"
 };
 
-export default async (req, res) => {
+export default async function handler(event) {
   try {
-    if (req.method !== "POST") {
-      return res.status(405).json({ error: "Method Not Allowed" });
+    if (event.httpMethod !== "POST") {
+      return {
+        statusCode: 405,
+        body: JSON.stringify({ error: "Method Not Allowed" })
+      };
     }
 
-    const buffers = [];
-    for await (const chunk of req) {
-      buffers.push(chunk);
-    }
-    const audioBuffer = Buffer.concat(buffers);
+    // Бинарное тело приходит в base64
+    const audioBuffer = Buffer.from(event.body, "base64");
 
     if (!audioBuffer || audioBuffer.length < 1000) {
-      return res.status(400).json({ error: "Empty or invalid audio" });
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: "Empty or invalid audio" })
+      };
     }
 
+    // Отправляем в Whisper
     const response = await openai.audio.transcriptions.create({
       file: new File([audioBuffer], "chunk.ogg", { type: "audio/ogg" }),
       model: "gpt-4o-mini-transcribe"
     });
 
     console.log("✅ Whisper:", response.text);
-    return res.status(200).json({ text: response.text });
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ text: response.text })
+    };
   } catch (err) {
     console.error("❌ Transcribe error:", err);
-    return res.status(500).json({
-      error: err.message || "Internal Server Error",
-      details: err
-    });
+    return {
+      statusCode: 500,
+      body: JSON.stringify({
+        error: err.message || "Internal Server Error",
+        details: err
+      })
+    };
   }
-};
+}
