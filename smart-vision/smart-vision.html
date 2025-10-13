@@ -1,104 +1,89 @@
-// === SMART VISION STREAMING ===
-// 🎧 Запуск и управление микрофоном
-
-let mediaRecorder;
-let isRecording = false;
-let audioChunks = [];
-let accumulatedText = "";
-
-// Элемент для вывода текста
-const output = document.getElementById("output");
-const micBtn = document.getElementById("micBtn");
-
-// Плавная печать текста
-function appendTextGradually(newText) {
-  let i = 0;
-  const speed = 25; // скорость появления символов
-  const interval = setInterval(() => {
-    if (i < newText.length) {
-      output.textContent += newText[i];
-      i++;
-    } else {
-      clearInterval(interval);
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SMART VISION — Живой разговор</title>
+  <link rel="icon" href="favicon.ico" type="image/x-icon" />
+  <link rel="stylesheet" href="css/style.css?v=3" />
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      background: #f4f6fa;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
     }
-  }, speed);
-}
-
-// === 🎙 Запуск микрофона ===
-async function startMic() {
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-
-    const mimeType = MediaRecorder.isTypeSupported("audio/ogg;codecs=opus")
-      ? "audio/ogg;codecs=opus"
-      : "audio/webm;codecs=opus";
-
-    mediaRecorder = new MediaRecorder(stream, { mimeType });
-
-    console.log("🎙 Recorder format:", mimeType);
-
-    mediaRecorder.ondataavailable = async (e) => {
-      if (e.data.size > 0) {
-        const blob = e.data;
-        await sendAudioChunk(blob);
-      }
-    };
-
-    mediaRecorder.start(2000); // каждые 2 секунды отправляем
-    isRecording = true;
-    micBtn.classList.add("recording");
-    output.textContent = "Слушаю... 🎧";
-
-    console.log("🎤 Recording started");
-  } catch (err) {
-    console.error("Ошибка доступа к микрофону:", err);
-    alert("Не удалось получить доступ к микрофону");
-  }
-}
-
-// === 🛑 Остановка ===
-function stopMic() {
-  if (mediaRecorder && isRecording) {
-    mediaRecorder.stop();
-    isRecording = false;
-    micBtn.classList.remove("recording");
-    output.textContent += "\n\n✅ Завершено.";
-    console.log("🎤 Recording stopped");
-  }
-}
-
-// === 📡 Отправка чанка ===
-async function sendAudioChunk(blob) {
-  try {
-    const formData = new FormData();
-    formData.append("file", blob, "audio.ogg");
-
-    const res = await fetch("/.netlify/functions/transcribe", {
-      method: "POST",
-      body: formData,
-    });
-
-    if (!res.ok) {
-      console.error("Transcribe error:", res.status);
-      return;
+    header {
+      width: 100%;
+      background: #fff;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+      padding: 10px 0;
+      text-align: center;
     }
-
-    const data = await res.json();
-    if (data.text) {
-      appendTextGradually(data.text + " ");
-      accumulatedText += data.text + " ";
+    .logo-horizontal {
+      height: 48px;
     }
-  } catch (err) {
-    console.error("Transcribe fetch error:", err);
-  }
-}
+    main {
+      margin-top: 40px;
+      width: 90%;
+      max-width: 700px;
+      text-align: center;
+    }
+    h1 {
+      font-size: 28px;
+      color: #222;
+    }
+    #micBtn {
+      margin-top: 25px;
+      width: 110px;
+      height: 110px;
+      border-radius: 50%;
+      border: none;
+      background: #444;
+      color: #fff;
+      font-size: 36px;
+      cursor: pointer;
+      position: relative;
+      transition: background 0.3s;
+    }
+    #micBtn.recording {
+      background: #d33;
+      animation: pulse 1.2s infinite;
+    }
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(255,0,0,0.4); }
+      70% { box-shadow: 0 0 0 30px rgba(255,0,0,0); }
+      100% { box-shadow: 0 0 0 0 rgba(255,0,0,0); }
+    }
+    #output {
+      margin-top: 35px;
+      background: #fff;
+      border-radius: 12px;
+      padding: 18px;
+      text-align: left;
+      font-size: 18px;
+      line-height: 1.5;
+      color: #333;
+      min-height: 150px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <img src="assets/logo-horizontal.jpg" alt="Smart Vision" class="logo-horizontal" />
+  </header>
 
-// === 🎛 Управление кнопкой ===
-micBtn.addEventListener("click", () => {
-  if (!isRecording) {
-    output.textContent = "";
-    startMic();
-  } else {
-    stopMic();
-  }
-});
+  <main>
+    <h1>SMART VISION</h1>
+    <button id="micBtn">🎙</button>
+    <div id="output">Нажмите, чтобы начать говорить…</div>
+  </main>
+
+  <script src="js/smart-vision.js?v=3"></script>
+</body>
+</html>
