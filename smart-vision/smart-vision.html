@@ -1,34 +1,104 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SMART VISION — Живой разговор</title>
-  <link rel="icon" href="favicon.ico" type="image/x-icon" />
-  <link rel="stylesheet" href="css/style.css?v=2" />
-</head>
-<body>
-  <header class="header">
-    <img src="assets/logo-horizontal.jpg" alt="Smart Vision" class="logo-horizontal" />
-  </header>
+// === SMART VISION STREAMING ===
+// 🎧 Запуск и управление микрофоном
 
-  <main>
-    <h1>SMART VISION</h1>
+let mediaRecorder;
+let isRecording = false;
+let audioChunks = [];
+let accumulatedText = "";
 
-    <button id="micBtn" class="mic-button">
-      🎙
-      <div class="waves">
-        <span></span><span></span><span></span>
-      </div>
-    </button>
+// Элемент для вывода текста
+const output = document.getElementById("output");
+const micBtn = document.getElementById("micBtn");
 
-    <div id="status" class="status">Нажмите, чтобы начать разговор</div>
+// Плавная печать текста
+function appendTextGradually(newText) {
+  let i = 0;
+  const speed = 25; // скорость появления символов
+  const interval = setInterval(() => {
+    if (i < newText.length) {
+      output.textContent += newText[i];
+      i++;
+    } else {
+      clearInterval(interval);
+    }
+  }, speed);
+}
 
-    <div id="history" class="history">
-      <!-- История сообщений будет появляться здесь -->
-    </div>
-  </main>
+// === 🎙 Запуск микрофона ===
+async function startMic() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-  <script src="js/smart-vision.js?v=2"></script>
-</body>
-</html>
+    const mimeType = MediaRecorder.isTypeSupported("audio/ogg;codecs=opus")
+      ? "audio/ogg;codecs=opus"
+      : "audio/webm;codecs=opus";
+
+    mediaRecorder = new MediaRecorder(stream, { mimeType });
+
+    console.log("🎙 Recorder format:", mimeType);
+
+    mediaRecorder.ondataavailable = async (e) => {
+      if (e.data.size > 0) {
+        const blob = e.data;
+        await sendAudioChunk(blob);
+      }
+    };
+
+    mediaRecorder.start(2000); // каждые 2 секунды отправляем
+    isRecording = true;
+    micBtn.classList.add("recording");
+    output.textContent = "Слушаю... 🎧";
+
+    console.log("🎤 Recording started");
+  } catch (err) {
+    console.error("Ошибка доступа к микрофону:", err);
+    alert("Не удалось получить доступ к микрофону");
+  }
+}
+
+// === 🛑 Остановка ===
+function stopMic() {
+  if (mediaRecorder && isRecording) {
+    mediaRecorder.stop();
+    isRecording = false;
+    micBtn.classList.remove("recording");
+    output.textContent += "\n\n✅ Завершено.";
+    console.log("🎤 Recording stopped");
+  }
+}
+
+// === 📡 Отправка чанка ===
+async function sendAudioChunk(blob) {
+  try {
+    const formData = new FormData();
+    formData.append("file", blob, "audio.ogg");
+
+    const res = await fetch("/.netlify/functions/transcribe", {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!res.ok) {
+      console.error("Transcribe error:", res.status);
+      return;
+    }
+
+    const data = await res.json();
+    if (data.text) {
+      appendTextGradually(data.text + " ");
+      accumulatedText += data.text + " ";
+    }
+  } catch (err) {
+    console.error("Transcribe fetch error:", err);
+  }
+}
+
+// === 🎛 Управление кнопкой ===
+micBtn.addEventListener("click", () => {
+  if (!isRecording) {
+    output.textContent = "";
+    startMic();
+  } else {
+    stopMic();
+  }
+});
