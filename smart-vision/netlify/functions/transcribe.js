@@ -3,6 +3,7 @@ import Busboy from "busboy";
 import fs from "fs";
 import os from "os";
 import path from "path";
+import ffmpeg from "fluent-ffmpeg";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -21,19 +22,18 @@ export const handler = async (event) => {
 
     return await new Promise((resolve, reject) => {
       const busboy = Busboy({ headers: { "content-type": contentType } });
-      let tmpFilePath = null;
-      let fileMime = null;
+      let tmpWebm = null;
+      let tmpOgg = null;
 
-      busboy.on("file", (fieldname, file, filename, encoding, mimetype) => {
-        fileMime = mimetype || "audio/webm";
-        const ext = fileMime.includes("ogg") ? "ogg" : "webm";
-        tmpFilePath = path.join(os.tmpdir(), `${Date.now()}-${filename || "chunk"}.${ext}`);
-        const writeStream = fs.createWriteStream(tmpFilePath);
-        file.pipe(writeStream);
+      busboy.on("file", (fieldname, file, filename) => {
+        tmpWebm = path.join(os.tmpdir(), `${Date.now()}-${filename || "audio.webm"}`);
+        tmpOgg = tmpWebm.replace(".webm", ".ogg");
+        const stream = fs.createWriteStream(tmpWebm);
+        file.pipe(stream);
       });
 
       busboy.on("finish", async () => {
-        if (!tmpFilePath || !fs.existsSync(tmpFilePath)) {
+        if (!tmpWebm || !fs.existsSync(tmpWebm)) {
           return resolve({
             statusCode: 400,
             body: JSON.stringify({ error: "Audio file missing" }),
@@ -41,34 +41,39 @@ export const handler = async (event) => {
         }
 
         try {
-          console.log("🎧 Файл записан:", tmpFilePath, fileMime);
+          console.log("🎧 Конвертируем в OGG...");
+          await new Promise((res, rej) => {
+            ffmpeg(tmpWebm)
+              .output(tmpOgg)
+              .audioCodec("libopus")
+              .on("end", res)
+              .on("error", rej)
+              .run();
+          });
 
-          // --- Попробуем явно указать корректный MIME для Whisper ---
-          const fileStream = fs.createReadStream(tmpFilePath);
+          console.log("✅ Конвертация завершена:", tmpOgg);
 
           const response = await openai.audio.transcriptions.create({
             model: "gpt-4o-mini-transcribe",
-            file: fileStream,
-            // ⚠️ добавляем этот параметр, чтобы Whisper знал формат
-            // (особенно важно для WebM с Opus)
-            file_options: { filename: "audio.ogg", contentType: "audio/ogg" },
+            file: fs.createReadStream(tmpOgg),
           });
 
-          console.log("✅ Whisper:", response.text);
+          console.log("✅ Whisper OK:", response.text);
 
           resolve({
             statusCode: 200,
             body: JSON.stringify({ text: response.text }),
           });
         } catch (err) {
-          console.error("❌ Whisper error:", err);
+          console.error("❌ Whisper failed:", err);
           resolve({
             statusCode: 500,
             body: JSON.stringify({ error: err.message }),
           });
         } finally {
           try {
-            fs.unlinkSync(tmpFilePath);
+            fs.unlinkSync(tmpWebm);
+            fs.unlinkSync(tmpOgg);
           } catch {}
         }
       });
