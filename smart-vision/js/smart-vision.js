@@ -1,4 +1,4 @@
-// smart-vision.js v5
+// smart-vision.js v6 — правильная передача WebM в Whisper
 let mediaRecorder;
 let isRecording = false;
 let silenceTimer;
@@ -21,7 +21,6 @@ async function startRecording() {
 
     mediaRecorder.ondataavailable = async (event) => {
       if (event.data.size > 0 && isRecording) {
-        audioChunks.push(event.data);
         await sendAudioChunk(event.data);
         resetSilenceTimer();
       }
@@ -34,7 +33,7 @@ async function startRecording() {
       clearTimeout(silenceTimer);
     };
 
-    mediaRecorder.start(2000); // каждые 2 сек отправляем фрагмент
+    mediaRecorder.start(2000);
     resetSilenceTimer();
 
   } catch (err) {
@@ -55,26 +54,21 @@ function resetSilenceTimer() {
   silenceTimer = setTimeout(() => {
     console.log("⏱ Silence timeout reached — stopping mic");
     stopRecording();
-  }, 4000); // авто-стоп через 4 сек тишины
+  }, 4000);
 }
 
-async function sendAudioChunk(chunk) {
+async function sendAudioChunk(blob) {
   try {
-    const arrayBuffer = await chunk.arrayBuffer();
-    const base64Audio = btoa(
-      new Uint8Array(arrayBuffer)
-        .reduce((data, byte) => data + String.fromCharCode(byte), "")
-    );
+    const formData = new FormData();
+    formData.append("file", blob, "chunk.webm");
 
     const response = await fetch("/.netlify/functions/transcribe", {
       method: "POST",
-      headers: { "Content-Type": "application/octet-stream" },
-      body: base64Audio
+      body: formData
     });
 
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
-
     if (data.text) appendText(data.text);
 
   } catch (err) {
