@@ -115,10 +115,14 @@ document.addEventListener("DOMContentLoaded", () => {
     }, 150);
   }
 
-  /* === ИМИТАЦИЯ СТРИМИНГА === */
+  /* === СТРИМИНГ ОТ СЕРВЕРА === */
   async function startStreaming() {
     try {
-      const res = await fetch("/.netlify/functions/transcribe");
+      // важная правка — POST, а не GET
+      const res = await fetch("/.netlify/functions/transcribe", {
+        method: "POST",
+      });
+
       if (!res.ok) throw new Error("Ошибка сервера");
       const reader = res.body.getReader();
       const decoder = new TextDecoder("utf-8");
@@ -141,6 +145,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     } catch (err) {
       console.error("Streaming error:", err);
+      updateStatus("Ошибка подключения 🔌");
     }
   }
 
