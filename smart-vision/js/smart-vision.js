@@ -5,11 +5,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const historyEl = document.getElementById("history");
 
   let isTalking = false;
-  let audioContext, analyser, microphone, dataArray, stream, mediaRecorder;
-  let animationId, chunkTimer;
-  let audioChunks = [];
-  let partialText = "";
+  let audioContext, analyser, microphone, dataArray, stream;
+  let animationId;
   let lastStatus = "";
+  let currentText = "";
+
   const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
 
   micBtn.addEventListener("click", async () => {
@@ -19,6 +19,8 @@ document.addEventListener("DOMContentLoaded", () => {
       micBtn.classList.add("active", "pulse");
       waves.classList.add("show");
       updateStatus("Разговор начался…");
+      currentText = "";
+      historyEl.innerHTML = "";
 
       if (isMobile) {
         startMobileMode();
@@ -26,17 +28,15 @@ document.addEventListener("DOMContentLoaded", () => {
         startDesktopMic();
       }
 
-      startRecording();
+      startStreaming();
     } else {
       micBtn.classList.remove("active", "pulse");
       waves.classList.remove("show");
-      updateStatus("Разговор завершён.");
-      stopRecording();
       stopMic();
+      updateStatus("Разговор завершён.");
     }
   });
 
-  /* === РЕАЛЬНЫЙ МИКРОФОН + АНАЛИЗ ВОЛН === */
   async function startDesktopMic() {
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -79,7 +79,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  /* === МОБИЛЬНЫЙ РЕЖИМ (СИМУЛЯЦИЯ ВОЛН) === */
   function startMobileMode() {
     updateStatus("Говорите 🗣️");
     let pulse = 0;
@@ -101,135 +100,15 @@ document.addEventListener("DOMContentLoaded", () => {
     animateMobile();
   }
 
-  /* === СТАРТ ЗАПИСИ (ПСЕВДО-СТРИМ) === */
-  async function startRecording() {
-    try {
-      if (!stream) {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      }
-
-      const preferredTypes = [
-        'audio/webm;codecs=opus',
-        'audio/webm',
-        'audio/ogg;codecs=opus',
-        'audio/ogg'
-      ];
-      let chosenType = '';
-      for (const t of preferredTypes) {
-        if (MediaRecorder.isTypeSupported(t)) { chosenType = t; break; }
-      }
-
-      mediaRecorder = new MediaRecorder(stream, chosenType ? { mimeType: chosenType } : undefined);
-      audioChunks = [];
-      partialText = "";
-      historyEl.innerHTML = "";
-      mediaRecorder.start();
-
-      mediaRecorder.addEventListener("dataavailable", e => {
-        if (e.data && e.data.size > 0) audioChunks.push(e.data);
-      });
-
-      // каждые 2 сек — отправляем чанк в Whisper
-      chunkTimer = setInterval(async () => {
-        if (!isTalking) return;
-        if (audioChunks.length > 0) {
-          const chunk = new Blob(audioChunks.splice(0), { type: mediaRecorder.mimeType || chosenType || "audio/webm" });
-          await sendAudioChunk(chunk);
-        }
-      }, 2000);
-
-      mediaRecorder.addEventListener("stop", async () => {
-        clearInterval(chunkTimer);
-        if (audioChunks.length > 0) {
-          const finalBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType || chosenType || "audio/webm" });
-          await sendAudioChunk(finalBlob);
-        }
-      });
-    } catch (err) {
-      console.error("Ошибка записи:", err);
-      updateStatus("Ошибка записи ⚠️");
-    }
-  }
-
-  /* === ОСТАНОВКА ЗАПИСИ === */
-  function stopRecording() {
-    if (mediaRecorder && mediaRecorder.state !== "inactive") {
-      mediaRecorder.stop();
-    }
-    if (chunkTimer) clearInterval(chunkTimer);
-  }
-
-  /* === БАЗОВАЯ64 ФУНКЦИЯ === */
-  function base64FromArrayBuffer(buffer) {
-    let binary = '';
-    const bytes = new Uint8Array(buffer);
-    const chunkSize = 0x8000; // 32KB
-    for (let i = 0; i < bytes.length; i += chunkSize) {
-      const chunk = bytes.subarray(i, i + chunkSize);
-      binary += String.fromCharCode.apply(null, chunk);
-    }
-    return btoa(binary);
-  }
-
-  function extFromMime(mime) {
-    if (!mime) return 'webm';
-    if (mime.includes('ogg')) return 'ogg';
-    if (mime.includes('webm')) return 'webm';
-    if (mime.includes('wav')) return 'wav';
-    if (mime.includes('mp3')) return 'mp3';
-    if (mime.includes('m4a')) return 'm4a';
-    return 'webm';
-  }
-
-  /* === ОТПРАВКА В WHISPER ЧЕРЕЗ NETLIFY === */
-  async function sendAudioChunk(blob) {
-    try {
-      const mime = blob.type || (mediaRecorder && mediaRecorder.mimeType) || 'audio/webm';
-      const ext = extFromMime(mime);
-      const arrayBuf = await blob.arrayBuffer();
-      const base64 = base64FromArrayBuffer(arrayBuf);
-
-      const res = await fetch("/.netlify/functions/transcribe", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ audio: base64, mime, ext })
-      });
-
-      if (!res.ok) {
-        console.error("Transcribe HTTP error:", res.status);
-        return;
-      }
-
-      const data = await res.json();
-      if (data && data.text) {
-        partialText += (partialText ? " " : "") + data.text.trim();
-        updateHistory();
-      }
-    } catch (err) {
-      console.error("Ошибка отправки чанка:", err);
-    }
-  }
-
-  /* === ВЫВОД ТЕКСТА === */
-  function updateHistory() {
-    historyEl.innerHTML = `<div class="message user">${partialText.trim()}</div>`;
-    historyEl.scrollTop = historyEl.scrollHeight;
-  }
-
-  /* === ГАРАНТИРОВАННОЕ ВЫКЛЮЧЕНИЕ МИКРОФОНА === */
   function stopMic() {
     if (animationId) cancelAnimationFrame(animationId);
-    if (audioContext) {
-      try { audioContext.close(); } catch(_) {}
-    }
+    if (audioContext) audioContext.close();
     if (stream) {
-      stream.getTracks().forEach(track => track.stop());
+      stream.getTracks().forEach((track) => track.stop());
       stream = null;
     }
-    updateStatus("Разговор завершён.");
   }
 
-  /* === ПЛАВНАЯ СМЕНА СТАТУСА === */
   function updateStatus(text) {
     status.style.opacity = 0;
     setTimeout(() => {
@@ -237,4 +116,50 @@ document.addEventListener("DOMContentLoaded", () => {
       status.style.opacity = 1;
     }, 150);
   }
-});
+
+  /* === ЖИВОЕ ОБНОВЛЕНИЕ ТЕКСТА === */
+  async function startStreaming() {
+    const response = await fetch("/.netlify/functions/transcribe", {
+      method: "POST",
+    });
+
+    if (!response.ok) {
+      console.error("Transcribe error:", response.status);
+      return;
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder("utf-8");
+
+    while (isTalking) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const chunk = decoder.decode(value, { stream: true });
+
+      try {
+        const data = JSON.parse(chunk);
+        if (data.text) {
+          updateTypedText(data.text);
+        }
+      } catch (err) {
+        console.warn("JSON parse error:", err);
+      }
+    }
+  }
+
+  function updateTypedText(newText) {
+    if (!newText) return;
+    const newWords = newText.split(" ");
+    const currentWords = currentText.split(" ");
+    const diff = newWords.slice(currentWords.length);
+    if (diff.length > 0) {
+      const diffText = diff.join(" ") + " ";
+      currentText = newText;
+      displayTypedText(diffText);
+    }
+  }
+
+  function displayTypedText(text) {
+    let el = document.getElementById("liveText");
+    if (!el) {
+      el = document.crea
