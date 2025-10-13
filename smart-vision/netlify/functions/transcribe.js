@@ -1,51 +1,35 @@
-// netlify/functions/transcribe.js
-import { OpenAI } from "openai";
+// smart-vision/netlify/functions/transcribe.js
+import OpenAI from "openai";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-export const config = {
-  runtime: "nodejs20"
-};
-
-export default async function handler(event) {
+export default async (request) => {
   try {
-    if (event.httpMethod !== "POST") {
+    if (request.method !== "POST") {
       return new Response(
         JSON.stringify({ error: "Method Not Allowed" }),
-        { status: 405, headers: { "Content-Type": "application/json" } }
+        { status: 405 }
       );
     }
 
-    // Читаем бинарное тело (Base64)
-    const audioBuffer = Buffer.from(event.body, "base64");
-    if (!audioBuffer || audioBuffer.length < 1000) {
-      return new Response(
-        JSON.stringify({ error: "Empty or invalid audio" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
-      );
-    }
+    const base64 = await request.text();
+    const buffer = Buffer.from(base64, "base64");
 
-    // Whisper
     const response = await openai.audio.transcriptions.create({
-      file: new File([audioBuffer], "chunk.ogg", { type: "audio/ogg" }),
+      file: new File([buffer], "chunk.webm", { type: "audio/webm" }),
       model: "gpt-4o-mini-transcribe"
     });
 
-    console.log("✅ Whisper:", response.text);
-
     return new Response(
       JSON.stringify({ text: response.text }),
-      { status: 200, headers: { "Content-Type": "application/json" } }
+      { headers: { "Content-Type": "application/json" } }
     );
 
   } catch (err) {
     console.error("❌ Transcribe error:", err);
     return new Response(
-      JSON.stringify({
-        error: err.message || "Internal Server Error",
-        details: err
-      }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
+      JSON.stringify({ error: err.message }),
+      { status: 500 }
     );
   }
-}
+};
