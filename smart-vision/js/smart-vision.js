@@ -21,18 +21,18 @@ document.addEventListener("DOMContentLoaded", () => {
       waves.classList.add("show");
       updateStatus("Разговор начался…");
 
-      // очищаем прошлый вывод
+      // чистим экран/состояние
       currentText = "";
       historyEl.innerHTML = "";
 
       if (isMobile) {
         startMobileMode();
+        await ensureStream();
       } else {
         await startDesktopMic();
       }
 
-      // старт записи и отправки чанков
-      await startRecording();
+      await startRecording(); // начинаем реальные чанки
     } else {
       micBtn.classList.remove("active", "pulse");
       waves.classList.remove("show");
@@ -42,7 +42,19 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  /* === ДЕСКТОП: доступ к микрофону + визуализация === */
+  /* === получение разрешения на микрофон (если мобильный режим) === */
+  async function ensureStream() {
+    if (!stream) {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch (e) {
+        console.error("Микрофон недоступен:", e);
+        updateStatus("Ошибка доступа к микрофону 😕");
+      }
+    }
+  }
+
+  /* === ДЕСКТОП: визуализация + доступ к микрофону === */
   async function startDesktopMic() {
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -58,7 +70,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  /* === АНАЛИЗ ЗВУКА ДЛЯ ВОЛН/СТАТУСА === */
   function animateVolume() {
+    if (!analyser) return;
     analyser.getByteTimeDomainData(dataArray);
     let sum = 0;
     for (let i = 0; i < dataArray.length; i++) {
@@ -81,7 +95,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (isTalking) animationId = requestAnimationFrame(animateVolume);
   }
 
-  /* === МОБИЛЬНЫЙ РЕЖИМ: мягкая анимация волн === */
+  /* === МОБИЛЬНАЯ АНИМАЦИЯ ВОЛН === */
   function startMobileMode() {
     updateStatus("Говорите 🗣️");
     let pulse = 0;
@@ -98,15 +112,14 @@ document.addEventListener("DOMContentLoaded", () => {
     })();
   }
 
-  /* === ЗАПИСЬ И ОТПРАВКА ЧАНКОВ (JSON + base64) === */
+  /* === ЗАПИСЬ И ОТПРАВКА ЧАНКОВ === */
   async function startRecording() {
     try {
       if (!stream) {
-        // если мобильный вызов без desktop getUserMedia
         stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       }
 
-      // выбираем совместимый mime
+      // выбираем максимально совместимый формат
       const preferred = [
         "audio/webm;codecs=opus",
         "audio/webm",
@@ -115,22 +128,26 @@ document.addEventListener("DOMContentLoaded", () => {
       ];
       let chosenType = "";
       for (const t of preferred) {
-        if (MediaRecorder.isTypeSupported(t)) { chosenType = t; break; }
+        if (window.MediaRecorder && MediaRecorder.isTypeSupported(t)) {
+          chosenType = t; break;
+        }
       }
 
       mediaRecorder = new MediaRecorder(stream, chosenType ? { mimeType: chosenType } : undefined);
       audioChunks = [];
-      mediaRecorder.start(250); // просим частые dataavailable
+      mediaRecorder.start(250); // часто отдаёт dataavailable
 
       mediaRecorder.addEventListener("dataavailable", (e) => {
         if (e.data && e.data.size > 0) audioChunks.push(e.data);
       });
 
-      // каждые 2 сек отправляем накопившееся
+      // каждые 2 сек шлём накопившееся
       chunkTimer = setInterval(async () => {
         if (!isTalking) return;
         if (audioChunks.length > 0) {
-          const blob = new Blob(audioChunks.splice(0), { type: mediaRecorder.mimeType || chosenType || "audio/webm" });
+          const blob = new Blob(audioChunks.splice(0), {
+            type: mediaRecorder.mimeType || chosenType || "audio/webm",
+          });
           await sendAudioChunk(blob);
         }
       }, 2000);
@@ -138,7 +155,9 @@ document.addEventListener("DOMContentLoaded", () => {
       mediaRecorder.addEventListener("stop", async () => {
         clearInterval(chunkTimer);
         if (audioChunks.length > 0) {
-          const finalBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType || chosenType || "audio/webm" });
+          const finalBlob = new Blob(audioChunks, {
+            type: mediaRecorder.mimeType || chosenType || "audio/webm",
+          });
           await sendAudioChunk(finalBlob);
         }
       });
@@ -155,19 +174,29 @@ document.addEventListener("DOMContentLoaded", () => {
     if (chunkTimer) clearInterval(chunkTimer);
   }
 
-  /* === Отправка чанка в /transcribe (ожидает JSON {audio, mime, ext}) === */
+  /* === ДОСТАВКА ЧАНКА: сначала пытаемся JSON base64, если не примут — FormData === */
   async function sendAudioChunk(blob) {
     try {
       const mime = blob.type || (mediaRecorder && mediaRecorder.mimeType) || "audio/webm";
       const ext = extFromMime(mime);
+
+      // 1) Попытка JSON base64 (как в твоём transcribe.js)
       const arrayBuf = await blob.arrayBuffer();
       const base64 = base64FromArrayBuffer(arrayBuf);
-
-      const res = await fetch("/.netlify/functions/transcribe", {
+      let res = await fetch("/.netlify/functions/transcribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ audio: base64, mime, ext }),
       });
+
+      // если сервер не принял JSON — пробуем FormData
+      if (!res.ok) {
+        // 2) fallback: multipart/form-data
+        const fd = new FormData();
+        fd.append("file", blob, `chunk.${ext}`);
+        fd.append("mime", mime);
+        res = await fetch("/.netlify/functions/transcribe", { method: "POST", body: fd });
+      }
 
       if (!res.ok) {
         console.error("Transcribe HTTP error:", res.status);
@@ -175,20 +204,21 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       const data = await res.json();
-      if (data && data.text) {
-        // сервер возвращает plain text (целый фрагмент транскрипции)
-        appendTypedTextSegment(data.text);
-      }
+
+      // поддержим оба варианта ответа:
+      // { text: "..." } ИЛИ просто строка
+      const text = (typeof data === "string") ? data : data.text;
+      if (text) appendTypedTextSegment(text);
     } catch (err) {
       console.error("Ошибка отправки чанка:", err);
     }
   }
 
-  /* === Вспомогательные === */
+  /* === ВСПОМОГАТЕЛЬНЫЕ === */
   function base64FromArrayBuffer(buffer) {
     let binary = "";
     const bytes = new Uint8Array(buffer);
-    const chunkSize = 0x8000; // 32 KB
+    const chunkSize = 0x8000;
     for (let i = 0; i < bytes.length; i += chunkSize) {
       const chunk = bytes.subarray(i, i + chunkSize);
       binary += String.fromCharCode.apply(null, chunk);
@@ -206,11 +236,10 @@ document.addEventListener("DOMContentLoaded", () => {
     return "webm";
   }
 
-  /* === ЖИВОЙ ВЫВОД (по сегментам, без тормозов) === */
+  /* === МЯГКИЙ ВЫВОД: добавляем только «разницу» сегмента === */
   function appendTypedTextSegment(segmentText) {
     if (!segmentText) return;
 
-    // создаём/находим контейнер
     let live = document.getElementById("liveText");
     if (!live) {
       live = document.createElement("div");
@@ -219,27 +248,28 @@ document.addEventListener("DOMContentLoaded", () => {
       historyEl.appendChild(live);
     }
 
-    // если новый сегмент повторяет часть уже набранного — добавим только "разницу"
     const cleaned = segmentText.trim();
+
+    // если API возвращает полный кумулятивный текст — берём разницу;
+    // если возвращает только новый фрагмент — просто добавим.
     let toAppend = cleaned;
     if (currentText && cleaned.startsWith(currentText)) {
       toAppend = cleaned.slice(currentText.length);
     }
-    // если всё же не распознали разницу — просто добавим сегмент с пробелом
     if (!toAppend) toAppend = cleaned;
 
-    currentText = cleaned;
+    currentText = cleaned.length >= currentText.length ? cleaned : currentText + " " + cleaned;
 
     const span = document.createElement("span");
     span.className = "typed";
-    span.textContent = (toAppend + " ");
+    span.textContent = toAppend + " ";
     live.appendChild(span);
 
-    // авто-прокрутка вниз (мягкая, но если не нужно — закомментируй)
+    // мягкая автопрокрутка вниз
     historyEl.scrollTop = historyEl.scrollHeight;
   }
 
-  /* === СТОП МИКРОФОНА/АНИМАЦИИ === */
+  /* === STOP === */
   function stopMic() {
     if (animationId) cancelAnimationFrame(animationId);
     if (audioContext) { try { audioContext.close(); } catch (_) {} }
