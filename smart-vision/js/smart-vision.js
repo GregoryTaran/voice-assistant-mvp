@@ -1,147 +1,105 @@
-document.addEventListener("DOMContentLoaded", () => {
-  const micBtn = document.getElementById("micBtn");
-  const status = document.getElementById("status");
-  const waves = micBtn.querySelector(".waves");
-  const historyEl = document.getElementById("history");
+// === SMART VISION STREAMING ===
+// 🎧 Запуск и управление микрофоном
 
-  let isTalking = false;
-  let audioContext, analyser, microphone, dataArray, stream, mediaRecorder;
-  let animationId;
-  let silenceStart = null;
-  const silenceThreshold = 3; // уровень громкости, ниже которого считаем тишину
-  const silenceLimit = 4000; // 4 секунды
+let mediaRecorder;
+let isRecording = false;
+let audioChunks = [];
+let accumulatedText = "";
 
-  micBtn.addEventListener("click", async () => {
-    isTalking = !isTalking;
+// Элемент для вывода текста
+const output = document.getElementById("output");
+const micBtn = document.getElementById("micBtn");
 
-    if (isTalking) {
-      micBtn.classList.add("active", "pulse");
-      waves.classList.add("show");
-      updateStatus("Разговор начался…");
-      historyEl.innerHTML = "";
-      await startMic();
-      startRecording();
+// Плавная печать текста
+function appendTextGradually(newText) {
+  let i = 0;
+  const speed = 25; // скорость появления символов
+  const interval = setInterval(() => {
+    if (i < newText.length) {
+      output.textContent += newText[i];
+      i++;
     } else {
-      stopAll("Разговор завершён.");
+      clearInterval(interval);
     }
-  });
+  }, speed);
+}
 
-  async function startMic() {
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      analyser = audioContext.createAnalyser();
-      microphone = audioContext.createMediaStreamSource(stream);
-      dataArray = new Uint8Array(analyser.frequencyBinCount);
-      microphone.connect(analyser);
-      animateVolume();
-    } catch (err) {
-      console.error("Ошибка микрофона:", err);
-      updateStatus("Ошибка доступа к микрофону 😕");
-    }
-  }
+// === 🎙 Запуск микрофона ===
+async function startMic() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-  function animateVolume() {
-    analyser.getByteTimeDomainData(dataArray);
-    let sum = 0;
-    for (let i = 0; i < dataArray.length; i++) {
-      sum += Math.abs(dataArray[i] - 128);
-    }
-    const volume = sum / dataArray.length;
+    const mimeType = MediaRecorder.isTypeSupported("audio/ogg;codecs=opus")
+      ? "audio/ogg;codecs=opus"
+      : "audio/webm;codecs=opus";
 
-    waves.querySelectorAll("span").forEach((wave, i) => {
-      const scale = 1 + volume / 70 + i * 0.15;
-      wave.style.transform = `scale(${scale})`;
-      wave.style.opacity = Math.min(0.7, volume / 50);
-    });
+    mediaRecorder = new MediaRecorder(stream, { mimeType });
 
-    // автостоп по тишине
-    if (volume < silenceThreshold) {
-      if (silenceStart === null) silenceStart = Date.now();
-      else if (Date.now() - silenceStart > silenceLimit) {
-        stopAll("Разговор завершён (тишина).");
-        return;
-      }
-    } else {
-      silenceStart = null;
-    }
-
-    if (isTalking) animationId = requestAnimationFrame(animateVolume);
-  }
-
-  async function startRecording() {
-    if (!stream) await startMic();
-    mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm;codecs=opus" });
-    mediaRecorder.start(2000); // каждые 2 секунды — стабильный чанк
+    console.log("🎙 Recorder format:", mimeType);
 
     mediaRecorder.ondataavailable = async (e) => {
       if (e.data.size > 0) {
-        await sendAudioChunk(e.data);
+        const blob = e.data;
+        await sendAudioChunk(blob);
       }
     };
 
-    mediaRecorder.onstop = () => {
-      updateStatus("Запись остановлена");
-    };
+    mediaRecorder.start(2000); // каждые 2 секунды отправляем
+    isRecording = true;
+    micBtn.classList.add("recording");
+    output.textContent = "Слушаю... 🎧";
+
+    console.log("🎤 Recording started");
+  } catch (err) {
+    console.error("Ошибка доступа к микрофону:", err);
+    alert("Не удалось получить доступ к микрофону");
   }
+}
 
-  async function sendAudioChunk(blob) {
-    try {
-      const fd = new FormData();
-      fd.append("file", blob, "chunk.webm");
+// === 🛑 Остановка ===
+function stopMic() {
+  if (mediaRecorder && isRecording) {
+    mediaRecorder.stop();
+    isRecording = false;
+    micBtn.classList.remove("recording");
+    output.textContent += "\n\n✅ Завершено.";
+    console.log("🎤 Recording stopped");
+  }
+}
 
-      const res = await fetch("/.netlify/functions/transcribe", {
-        method: "POST",
-        body: fd,
-      });
+// === 📡 Отправка чанка ===
+async function sendAudioChunk(blob) {
+  try {
+    const formData = new FormData();
+    formData.append("file", blob, "audio.ogg");
 
-      if (!res.ok) {
-        console.error("Transcribe error:", res.status);
-        return;
-      }
+    const res = await fetch("/.netlify/functions/transcribe", {
+      method: "POST",
+      body: formData,
+    });
 
-      const data = await res.json();
-      const text = data.text || "";
-      appendLiveText(text);
-    } catch (err) {
-      console.error("Ошибка отправки чанка:", err);
+    if (!res.ok) {
+      console.error("Transcribe error:", res.status);
+      return;
     }
-  }
 
-  function appendLiveText(text) {
-    if (!text) return;
-
-    let live = document.getElementById("liveText");
-    if (!live) {
-      live = document.createElement("div");
-      live.id = "liveText";
-      live.className = "live-text";
-      historyEl.appendChild(live);
+    const data = await res.json();
+    if (data.text) {
+      appendTextGradually(data.text + " ");
+      accumulatedText += data.text + " ";
     }
-
-    live.textContent = text;
-    historyEl.scrollTop = historyEl.scrollHeight;
+  } catch (err) {
+    console.error("Transcribe fetch error:", err);
   }
+}
 
-  function stopAll(message) {
-    if (mediaRecorder && mediaRecorder.state !== "inactive") mediaRecorder.stop();
-    if (audioContext) audioContext.close();
-    if (animationId) cancelAnimationFrame(animationId);
-    if (stream) {
-      stream.getTracks().forEach((t) => t.stop());
-      stream = null;
-    }
-    isTalking = false;
-    micBtn.classList.remove("active", "pulse");
-    waves.classList.remove("show");
-    updateStatus(message);
-  }
-
-  function updateStatus(text) {
-    status.style.opacity = 0;
-    setTimeout(() => {
-      status.textContent = text;
-      status.style.opacity = 1;
-    }, 150);
+// === 🎛 Управление кнопкой ===
+micBtn.addEventListener("click", () => {
+  if (!isRecording) {
+    output.textContent = "";
+    startMic();
+  } else {
+    stopMic();
   }
 });
+
