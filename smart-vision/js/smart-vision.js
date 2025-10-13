@@ -1,105 +1,88 @@
-// === SMART VISION STREAMING ===
-// 🎧 Запуск и управление микрофоном
-
+// smart-vision.js v4
 let mediaRecorder;
-let isRecording = false;
 let audioChunks = [];
-let accumulatedText = "";
-
-// Элемент для вывода текста
+let isRecording = false;
+let silenceTimer;
 const output = document.getElementById("output");
-const micBtn = document.getElementById("micBtn");
 
-// Плавная печать текста
-function appendTextGradually(newText) {
-  let i = 0;
-  const speed = 25; // скорость появления символов
-  const interval = setInterval(() => {
-    if (i < newText.length) {
-      output.textContent += newText[i];
-      i++;
-    } else {
-      clearInterval(interval);
-    }
-  }, speed);
-}
-
-// === 🎙 Запуск микрофона ===
-async function startMic() {
+async function startRecording() {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaRecorder = new MediaRecorder(stream);
+    isRecording = true;
+    audioChunks = [];
+    output.innerHTML = "🎤 Recording started<br>";
 
-    const mimeType = MediaRecorder.isTypeSupported("audio/ogg;codecs=opus")
-      ? "audio/ogg;codecs=opus"
-      : "audio/webm;codecs=opus";
-
-    mediaRecorder = new MediaRecorder(stream, { mimeType });
-
-    console.log("🎙 Recorder format:", mimeType);
-
-    mediaRecorder.ondataavailable = async (e) => {
-      if (e.data.size > 0) {
-        const blob = e.data;
-        await sendAudioChunk(blob);
+    mediaRecorder.ondataavailable = async (event) => {
+      if (event.data.size > 0 && isRecording) {
+        audioChunks.push(event.data);
+        await sendAudioChunk(event.data);
       }
     };
 
-    mediaRecorder.start(2000); // каждые 2 секунды отправляем
-    isRecording = true;
-    micBtn.classList.add("recording");
-    output.textContent = "Слушаю... 🎧";
+    mediaRecorder.onstop = () => {
+      stream.getTracks().forEach((t) => t.stop());
+      output.innerHTML += "🎤 Recording stopped<br>";
+    };
 
-    console.log("🎤 Recording started");
+    mediaRecorder.start(2000); // каждые 2 секунды чанк
+    resetSilenceTimer();
+
   } catch (err) {
-    console.error("Ошибка доступа к микрофону:", err);
-    alert("Не удалось получить доступ к микрофону");
+    console.error("Mic error:", err);
+    output.innerHTML = "🎙 Ошибка микрофона: " + err.message;
   }
 }
 
-// === 🛑 Остановка ===
-function stopMic() {
-  if (mediaRecorder && isRecording) {
+async function stopRecording() {
+  isRecording = false;
+  if (mediaRecorder && mediaRecorder.state !== "inactive") {
     mediaRecorder.stop();
-    isRecording = false;
-    micBtn.classList.remove("recording");
-    output.textContent += "\n\n✅ Завершено.";
-    console.log("🎤 Recording stopped");
   }
+  clearTimeout(silenceTimer);
 }
 
-// === 📡 Отправка чанка ===
-async function sendAudioChunk(blob) {
-  try {
-    const formData = new FormData();
-    formData.append("file", blob, "audio.ogg");
+function resetSilenceTimer() {
+  clearTimeout(silenceTimer);
+  silenceTimer = setTimeout(() => {
+    console.log("⏱ Silence timeout reached — stopping mic");
+    stopRecording();
+  }, 4000); // ⏳ 4 секунды тишины — стоп
+}
 
-    const res = await fetch("/.netlify/functions/transcribe", {
+async function sendAudioChunk(chunk) {
+  try {
+    const arrayBuffer = await chunk.arrayBuffer();
+    const base64Audio = btoa(
+      new Uint8Array(arrayBuffer)
+        .reduce((data, byte) => data + String.fromCharCode(byte), "")
+    );
+
+    const response = await fetch("/.netlify/functions/transcribe", {
       method: "POST",
-      body: formData,
+      headers: { "Content-Type": "application/octet-stream" },
+      body: base64Audio
     });
 
-    if (!res.ok) {
-      console.error("Transcribe error:", res.status);
-      return;
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    const data = await response.json();
+    if (data.text) {
+      appendText(data.text);
+      resetSilenceTimer();
     }
 
-    const data = await res.json();
-    if (data.text) {
-      appendTextGradually(data.text + " ");
-      accumulatedText += data.text + " ";
-    }
   } catch (err) {
-    console.error("Transcribe fetch error:", err);
+    console.error("Transcribe error:", err.message);
   }
 }
 
-// === 🎛 Управление кнопкой ===
-micBtn.addEventListener("click", () => {
-  if (!isRecording) {
-    output.textContent = "";
-    startMic();
-  } else {
-    stopMic();
-  }
-});
+function appendText(text) {
+  const span = document.createElement("span");
+  span.textContent = " " + text;
+  output.appendChild(span);
+  window.scrollTo(0, document.body.scrollHeight);
+}
 
+document.getElementById("startBtn").addEventListener("click", startRecording);
+document.getElementById("stopBtn").addEventListener("click", stopRecording);
