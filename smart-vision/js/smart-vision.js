@@ -1,45 +1,53 @@
-// smart-vision.js v4
+// smart-vision.js v5
 let mediaRecorder;
-let audioChunks = [];
 let isRecording = false;
 let silenceTimer;
-const output = document.getElementById("output");
+let audioChunks = [];
+const micBtn = document.getElementById("micBtn");
+const output = document.getElementById("output") || document.getElementById("history");
+
+micBtn.addEventListener("click", () => {
+  if (isRecording) stopRecording();
+  else startRecording();
+});
 
 async function startRecording() {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     mediaRecorder = new MediaRecorder(stream);
     isRecording = true;
-    audioChunks = [];
-    output.innerHTML = "🎤 Recording started<br>";
+    micBtn.classList.add("active");
+    appendText("🎤 Recording started...\n");
 
     mediaRecorder.ondataavailable = async (event) => {
       if (event.data.size > 0 && isRecording) {
         audioChunks.push(event.data);
         await sendAudioChunk(event.data);
+        resetSilenceTimer();
       }
     };
 
     mediaRecorder.onstop = () => {
-      stream.getTracks().forEach((t) => t.stop());
-      output.innerHTML += "🎤 Recording stopped<br>";
+      stream.getTracks().forEach(t => t.stop());
+      micBtn.classList.remove("active");
+      appendText("🎤 Recording stopped.\n");
+      clearTimeout(silenceTimer);
     };
 
-    mediaRecorder.start(2000); // каждые 2 секунды чанк
+    mediaRecorder.start(2000); // каждые 2 сек отправляем фрагмент
     resetSilenceTimer();
 
   } catch (err) {
     console.error("Mic error:", err);
-    output.innerHTML = "🎙 Ошибка микрофона: " + err.message;
+    appendText("🎙 Ошибка микрофона: " + err.message);
   }
 }
 
-async function stopRecording() {
+function stopRecording() {
   isRecording = false;
   if (mediaRecorder && mediaRecorder.state !== "inactive") {
     mediaRecorder.stop();
   }
-  clearTimeout(silenceTimer);
 }
 
 function resetSilenceTimer() {
@@ -47,7 +55,7 @@ function resetSilenceTimer() {
   silenceTimer = setTimeout(() => {
     console.log("⏱ Silence timeout reached — stopping mic");
     stopRecording();
-  }, 4000); // ⏳ 4 секунды тишины — стоп
+  }, 4000); // авто-стоп через 4 сек тишины
 }
 
 async function sendAudioChunk(chunk) {
@@ -65,24 +73,18 @@ async function sendAudioChunk(chunk) {
     });
 
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
     const data = await response.json();
-    if (data.text) {
-      appendText(data.text);
-      resetSilenceTimer();
-    }
+
+    if (data.text) appendText(data.text);
 
   } catch (err) {
-    console.error("Transcribe error:", err.message);
+    console.error("Transcribe error:", err);
   }
 }
 
 function appendText(text) {
-  const span = document.createElement("span");
-  span.textContent = " " + text;
-  output.appendChild(span);
+  const p = document.createElement("p");
+  p.textContent = text;
+  output.appendChild(p);
   window.scrollTo(0, document.body.scrollHeight);
 }
-
-document.getElementById("startBtn").addEventListener("click", startRecording);
-document.getElementById("stopBtn").addEventListener("click", stopRecording);
